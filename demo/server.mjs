@@ -35,8 +35,7 @@ function layout({ req, title, content }) {
     <script>
       window.boostHtmlConfig = {
         progress: { showSpinner: true, trickleSpeed: 120 },
-        // Script re-execution is opt-in. This demo enables it explicitly.
-        executeScripts: true,
+        // Response scripts are never executed by the DOM Engine.
       }
     </script>
     <script defer src="/boost-html.js"></script>
@@ -173,8 +172,8 @@ const scripts = (req) =>
     title: 'Scripts',
     content: `
       <h1>Scripts</h1>
-      <p>This page contains an inline script. The demo enables
-      <code>executeScripts</code> explicitly; it is disabled by default.</p>
+      <p>This response contains an inline script to verify that the DOM Engine
+      keeps response scripts inert and never executes them automatically.</p>
       <script>window.__boostScriptRan = true</script>
       <p><a href="/">Back home</a></p>
     `,

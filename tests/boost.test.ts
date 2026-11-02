@@ -394,7 +394,7 @@ describe('boost-html', () => {
     expect(document.querySelectorAll('script')).toHaveLength(0)
   })
 
-  it('re-executes inline scripts when explicitly enabled', async () => {
+  it('never executes inline scripts, including with the deprecated executeScripts option', async () => {
     useBoost({ executeScripts: true })
     fetchMock.mockResolvedValue(
       respond("<h1>Scripts</h1><script>document.body.dataset.ran = 'yes'</script>"),
@@ -403,11 +403,16 @@ describe('boost-html', () => {
     click(document.getElementById('about')!)
     await vi.waitFor(() => expect(document.querySelector('h1')?.textContent).toBe('Scripts'))
 
-    expect(document.body.dataset.ran).toBe('yes')
+    expect(document.body.dataset.ran).toBeUndefined()
+    expect(document.querySelector('script')).toBeNull()
   })
 
-  it('applies a nonce to re-executed scripts', async () => {
-    useBoost({ executeScripts: true, nonce: 'script-nonce' })
+  it('passes inert script nodes and the CSP nonce to an explicit script handler', async () => {
+    const handler = vi.fn((scripts, context) => {
+      document.body.dataset.handled = scripts[0]?.textContent ?? ''
+      document.body.dataset.nonce = context.nonce
+    })
+    useBoost({ scriptHandler: handler, nonce: 'script-nonce' })
     fetchMock.mockResolvedValue(
       respond("<h1>Scripts</h1><script>document.body.dataset.ran = 'yes'</script>"),
     )
@@ -415,10 +420,14 @@ describe('boost-html', () => {
     click(document.getElementById('about')!)
     await vi.waitFor(() => expect(document.querySelector('h1')?.textContent).toBe('Scripts'))
 
-    expect(document.querySelector('body > script')?.getAttribute('nonce')).toBe('script-nonce')
+    expect(handler).toHaveBeenCalledTimes(1)
+    expect(document.body.dataset.handled).toContain("document.body.dataset.ran = 'yes'")
+    expect(document.body.dataset.nonce).toBe('script-nonce')
+    expect(document.body.dataset.ran).toBeUndefined()
+    expect(document.querySelector('script')).toBeNull()
   })
 
-  it('does not load an external script that is already present', async () => {
+  it('never inserts external scripts from a response', async () => {
     useBoost({ executeScripts: true })
     document.body.insertAdjacentHTML('beforeend', '<script src="/app.js"></script>')
     fetchMock.mockResolvedValue(respond('<h1>Scripts</h1><script src="/app.js"></script>'))

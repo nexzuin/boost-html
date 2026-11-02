@@ -53,7 +53,7 @@ test('navigates to a hash target', async ({ page }) => {
   await expect(page.locator('#install')).toBeInViewport()
 })
 
-test('re-executes scripts only because the demo opts in', async ({ page }) => {
+test('does not execute inline scripts from a boosted response', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('link', { name: 'Scripts', exact: true }).click()
 
@@ -61,5 +61,67 @@ test('re-executes scripts only because the demo opts in', async ({ page }) => {
   const ran = await page.evaluate(
     () => (window as Window & { __boostScriptRan?: boolean }).__boostScriptRan,
   )
-  expect(ran).toBe(true)
+  expect(ran).toBeUndefined()
+  await expect(page.locator('body script')).toHaveCount(0)
+})
+
+test('preserves uploaded files in a boosted multipart form', async ({ page }) => {
+  await page.route('**/upload', async (route) => {
+    const request = route.request()
+    expect(request.method()).toBe('POST')
+    expect(request.headers()['content-type']).toContain('multipart/form-data')
+    expect(request.postDataBuffer()?.toString('latin1')).toContain('report.txt')
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/html; charset=utf-8',
+      body: '<!doctype html><html><head><title>Uploaded</title></head><body><h1>Upload complete</h1></body></html>',
+    })
+  })
+
+  await page.goto('/')
+  await page.locator('body').evaluate((body) => {
+    const form = document.createElement('form')
+    form.action = '/upload'
+    form.method = 'post'
+    form.enctype = 'multipart/form-data'
+    form.innerHTML = '<input type="file" name="upload"><button>Upload</button>'
+    body.append(form)
+  })
+  await page.locator('input[type=file]').setInputFiles({
+    name: 'report.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('payload'),
+  })
+  await page.getByRole('button', { name: 'Upload' }).click()
+  await expect(page.locator('h1')).toHaveText('Upload complete')
+})
+
+test('replaces only the configured response target', async ({ page }) => {
+  await page.route('**/partial', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/html; charset=utf-8',
+      body: '<!doctype html><html><head><title>Partial</title></head><body><main id="partial-content"><h1>Partial update</h1></main></body></html>',
+    })
+  })
+
+  await page.goto('/')
+  await page.evaluate(() => {
+    const link = document.createElement('a')
+    link.href = '/partial'
+    link.textContent = 'Partial'
+    document.querySelector('nav')?.append(link)
+    const main = document.createElement('main')
+    main.id = 'partial-content'
+    main.innerHTML = '<p>Before</p>'
+    document.body.append(main)
+    ;(
+      window as Window & { boostHtml?: { options: { target: (doc?: Document) => Element | null } } }
+    ).boostHtml!.options.target = (doc) => doc?.querySelector('#partial-content') ?? null
+  })
+
+  await page.getByRole('link', { name: 'Partial' }).click()
+  await expect(page.locator('#partial-content h1')).toHaveText('Partial update')
+  await expect(page.locator('nav')).toBeVisible()
+  await expect(page).toHaveTitle('Partial')
 })

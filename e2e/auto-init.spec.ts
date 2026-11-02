@@ -13,5 +13,5 @@ test('auto-initialises and exposes the public handle', async ({ page }) => {
   })
 
   expect(result.hasHandle).toBe(true)
-  expect(result.scriptsOptIn).toBe(true)
+  expect(result.scriptsOptIn).toBe(false)
 })

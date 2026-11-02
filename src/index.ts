@@ -25,11 +25,17 @@ export function getBoost(): Boost | null {
 
 export type {
   Boost,
+  BoostDOMUpdateDetail,
   BoostErrorDetail,
   BoostHeaders,
   BoostOptions,
   BoostRequestDetail,
   BoostSwapDetail,
+  DOMScriptHandler,
+  DOMSwapHandler,
+  DOMUpdateContext,
+  HeadUpdateMode,
+  MorphAdapter,
   NavigateOptions,
   ProgressOptions,
   ResolvedBoostOptions,

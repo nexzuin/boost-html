@@ -1,10 +1,11 @@
 import { defineConfig } from 'tsup'
 
 export default defineConfig({
-  entry: { index: 'src/index.ts' },
+  entry: { index: 'src/index.ts', core: 'src/core.ts' },
   format: ['esm', 'cjs', 'iife'],
   globalName: 'BoostHtml',
   dts: true,
+  splitting: false,
   sourcemap: true,
   minify: true,
   clean: true,

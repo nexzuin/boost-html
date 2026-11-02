@@ -31,7 +31,7 @@ describe('auto initialisation', () => {
 
     expect(options?.progress).toBe(false)
     expect(options?.scope).toBe('.boosted')
-    expect(options?.executeScripts).toBe(true)
+    expect(options?.executeScripts).toBe(false)
     expect(options?.nonce).toBe('auto-nonce')
   })
 })
