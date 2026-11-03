@@ -21,13 +21,13 @@ The canonical public repository is now confirmed as
 `homepage`, and `bugs` fields have been added to `package.json`. The initial
 [GitHub Actions run](https://github.com/nexzuin/boost-html/actions/runs/41723917460)
 exposed an invalid Node 20 matrix entry: Vitest 5 and the
-current build toolchain require newer Node versions. The matrix has therefore
-been corrected to Node 22.19.0 and 24.11.0. The corrected [GitHub Actions run](https://github.com/nexzuin/boost-html/actions/runs/41724994801)
-completed successfully on Node 22.19.0 / 24.11.0 and all three browsers. It
-reported deprecation warnings because checkout/setup-node v4 still targeted
-Node 20; action references have now been upgraded to v7 and need one final
-remote verification. npm Trusted Publishing still requires account-level
-configuration by the maintainer.
+current build toolchain require newer Node versions. The matrix now uses Node 22.19.0 and 24.11.0. GitHub Actions
+`checkout`, `setup-node`, and `upload-artifact` have been upgraded to v7,
+removing the earlier Node 20 runtime deprecation warnings. The latest verified
+full matrix passed both Node quality jobs and Chromium, Firefox, and WebKit
+integration jobs. The workflow is green on the canonical GitHub repository.
+npm publication remains blocked on maintainer-side account configuration and
+explicit release approval.
 
 ## Local validation results
 
@@ -53,8 +53,7 @@ configuration by the maintainer.
 | Combined browser matrix | PASS | 43 passed, 2 skipped, 45 total |
 | Repository metadata | PASS | Canonical nexzuin/boost-html URLs configured and metadata verifier passes locally |
 | Initial remote GitHub Actions | FAIL (diagnosed) | Node 20 job failed at Vitest; Node 22/24 and all browser jobs passed |
-| Corrected remote GitHub Actions | PASS (run 41724994801) | Node 22.19.0 / 24.11.0 and Chromium/Firefox/WebKit passed; initial v4 actions emitted Node 20 deprecation warnings |
-| Final remote GitHub Actions | PASS (run 41726351927) | Latest commit passed both Node quality jobs and Chromium/Firefox/WebKit using checkout/setup-node/upload-artifact v7; no Node 20 deprecation warnings |
+| Remote GitHub Actions | PASS | Latest verified full matrix passed Node 22.19.0, Node 24.11.0, Chromium, Firefox, and WebKit using Actions v7; no Node 20 deprecation warnings |
 | Publish workflow | PREPARED / NOT TRIGGERED | `publish.yml` gated on published `v1.0.0`, package version check, and `npm-production` environment |
 | npm Trusted Publisher | BLOCKED / PENDING | npm package does not exist yet (registry E404); initial publication/bootstrap required |
 | Branch protection | PENDING | `main` was not protected when checked through GitHub API |
@@ -127,11 +126,9 @@ Publisher configuration still require maintainer action.
 
 | Priority | Blocker | Required action |
 | --- | --- | --- |
-| Critical | Canonical public repository URL unknown; no Git remote is configured. | Provide the exact public repository URL. Do not infer or fabricate an owner/name. |
-| High | `repository`, `homepage`, and `bugs` metadata are missing. | Set matching URLs after the canonical repository is confirmed; rerun `npm run verify:release-metadata`. |
-| High | npm Trusted Publishing is not configured. | Configure the exact GitHub owner, repository, workflow filename, and optional environment in npm package settings after the repository is public. |
-| High | GitHub Actions has not run on the canonical remote. | Push the commits and verify all Node and browser matrix jobs on GitHub. |
-| Medium | `engines.node` remains `>=18`, while the CI matrix tests Node 20/22/24. | Decide whether to add Node 18 runtime smoke coverage or raise/document the minimum Node version before stable release. |
+| High | GitHub branch protection is not enabled. | Create a ruleset for `main`; require the two Node quality checks and three browser integration checks, require PRs, and block force-push/deletion. |
+| High | GitHub `npm-production` environment protection is not configured. | Create the environment and add required reviewers before any release. |
+| High | First npm publication and Trusted Publisher setup are pending. | Confirm package-name availability, approve the 1.0.0 release, bootstrap the first publication, then configure the npm Trusted Publisher for `nexzuin/boost-html` / `publish.yml` / `npm-production`. |
 | Medium | 5 KiB core ESM gzip target remains open. | Continue optimization if 5 KiB is a hard v1.0.0 requirement; current 8.61 kB is only a regression ceiling. |
 | Medium | Long-duration memory soak testing has not been performed. | Run representative application soak tests and monitor browser-native memory/RSS. |
 | Medium | Trusted Types test runs only in Chromium. | Validate the host application's actual CSP and policy integration in supported browsers. |
@@ -151,6 +148,8 @@ consumers.
 - A guarded publish workflow was added but has not been triggered; it requires a published `v1.0.0` GitHub Release and a protected `npm-production` environment.
 - Draft v1.0.0 release notes and checklist do not constitute release approval.
 
-The stable release remains blocked until corrected remote CI passes, npm Trusted
-Publishing is configured, remaining quality goals are accepted, and explicit
-maintainer approval is given.
+The stable release remains blocked until branch protection and the protected
+`npm-production` environment are configured, the npm package name is confirmed
+available, the first-publication / Trusted Publisher sequence is completed,
+remaining quality goals are accepted, and the maintainer explicitly approves
+creating the `v1.0.0` release.
