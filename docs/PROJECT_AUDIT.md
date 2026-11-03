@@ -1,3 +1,10 @@
+> **Historical audit snapshot.** This document describes an earlier repository
+> state and contains findings, dependency notes, and measurements that may no
+> longer apply. For the current browser security posture, use
+> [`SECURITY.md`](./SECURITY.md). For current test, build, and release status,
+> use [`RELEASE_READINESS.md`](./RELEASE_READINESS.md). Do not treat old findings
+> in this file as the current implementation state without re-verification.
+
 # Project Audit — `boost-html`
 
 **Status:** Audit at time of writing. No source, test, build, or configuration

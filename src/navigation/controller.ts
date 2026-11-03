@@ -518,7 +518,7 @@ class NavigationController implements Boost {
 
     const form = event.target
     if (!(form instanceof HTMLFormElement)) return
-    if (!this.isBoosted(form)) return
+    if (!form.matches(this.options.formSelector) || !this.isBoosted(form)) return
     if (this.submittingForms.has(form)) {
       event.preventDefault()
       markHandled(event)

@@ -91,6 +91,7 @@ const requiredPackageFiles = [
   'CHANGELOG.md',
   'docs/API.md',
   'docs/SECURITY.md',
+  'docs/MIGRATION.md',
   'dist/index.js',
   'dist/index.cjs',
   'dist/index.d.ts',
@@ -112,8 +113,9 @@ for (const file of packed) {
 if (!packageJson.license || !existsSync(resolve(root, 'LICENSE')))
   fail('license metadata or LICENSE file is missing')
 if (!packageJson.description) fail('package description is missing')
+if (packageJson.publishConfig?.provenance !== true) fail('publishConfig.provenance must be true')
 
 if (process.exitCode) process.exit(process.exitCode)
 console.log(
-  `Package verification passed: ${packed.size} files, ${tarball.size} bytes, ESM/CJS exports and declarations validated.`,
+  `Package verification passed: ${packed.size} files, ${tarball.size} bytes, ESM/CJS/IIFE exports, declarations, and provenance config validated.`,
 )

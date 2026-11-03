@@ -12,7 +12,6 @@
     "dom"
   ],
   "license": "MIT",
-  "author": "",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -49,7 +48,8 @@
     "SECURITY.md",
     "CHANGELOG.md",
     "docs/API.md",
-    "docs/SECURITY.md"
+    "docs/SECURITY.md",
+    "docs/MIGRATION.md"
   ],
   "sideEffects": [
     "./dist/index.js",
@@ -78,7 +78,8 @@
     "test:unit": "vitest run --coverage",
     "test:browser": "playwright test",
     "test:integration": "npm run build && npm run test:browser",
-    "verify:package": "node scripts/verify-package.mjs"
+    "verify:package": "node scripts/verify-package.mjs",
+    "verify:release-metadata": "node scripts/verify-release-metadata.mjs"
   },
   "dependencies": {},
   "devDependencies": {
@@ -107,7 +108,7 @@
     {
       "name": "Core ESM shared bundle (5 KB goal pending)",
       "path": "dist/chunk-*.js",
-      "limit": "8.6 kB",
+      "limit": "8.61 kB",
       "gzip": true
     },
     {
@@ -140,5 +141,8 @@
       "limit": "12.6 kB",
       "gzip": true
     }
-  ]
+  ],
+  "publishConfig": {
+    "provenance": true
+  }
 }

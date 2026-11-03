@@ -156,6 +156,26 @@ describe('boost-html', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('honors a custom formSelector', async () => {
+    document.body.innerHTML = `
+      <div data-boost="true">
+        <form id="ignored" action="/ignored" method="post"><button>Ignore</button></form>
+        <form id="selected" data-boost-submit action="/selected" method="post"><button>Send</button></form>
+      </div>
+    `
+    useBoost({ formSelector: 'form[data-boost-submit]' })
+    fetchMock.mockResolvedValue(respond('<h1>Selected</h1>'))
+
+    const ignoredEvent = submit(document.getElementById('ignored') as HTMLFormElement)
+    expect(ignoredEvent.defaultPrevented).toBe(false)
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    const selectedEvent = submit(document.getElementById('selected') as HTMLFormElement)
+    expect(selectedEvent.defaultPrevented).toBe(true)
+    await vi.waitFor(() => expect(document.querySelector('h1')?.textContent).toBe('Selected'))
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
   it.each([
     ['external', {}],
     ['blank', {}],

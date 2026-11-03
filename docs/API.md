@@ -1,222 +1,349 @@
-# DOM Engine API
+# API reference
 
-The DOM Engine runs only after the Fetch response has passed HTTP status,
-content-type, size, final-URL, document-shape, and target validation. HTML is
-parsed once with DOMParser; the parsed response is reused for target selection
-and the swap.
+This document describes the public TypeScript API, configuration, lifecycle
+events, navigation behavior, and DOM update extension points. For an overview
+and installation examples, see the [README](../README.md).
 
-## Target selection
+## Entry points
+
+### `boost-html`
+
+The package root exports `createBoost()`, `getBoost()`, and public types. When
+loaded in a browser it also creates and starts a default instance using
+`window.boostHtmlConfig` (or default options) and assigns it to
+`window.boostHtml`.
+
+```ts
+import { createBoost, getBoost } from 'boost-html'
+
+const automaticInstance = getBoost()
+```
+
+Importing the root entry for named exports still triggers automatic
+initialization. Avoid creating a second instance unless that is intentional.
+
+### `boost-html/core`
+
+The `core` subpath exports `createBoost()` and public types without automatic
+initialization. Use it when the application owns lifecycle management.
 
 ```ts
 import { createBoost } from 'boost-html/core'
 
-const boost = createBoost({
-  target: '#app-content',
-})
+const boost = createBoost({ progress: false })
 boost.start()
 ```
 
-A string selector is evaluated once against the live document before the
-request and once against the parsed response. Both elements must exist. The
-response target supplies the children used for the update; the live target
-itself remains in place.
+### Browser bundle
 
-A document-aware callback can select different elements in the live and
-response documents:
+The IIFE bundle is `dist/index.global.js` and is published through the package's
+`unpkg` and `jsdelivr` fields. It exposes the `BoostHtml` namespace and
+`window.boostHtml` auto-created instance. The `core` IIFE is
+`dist/core.global.js` and does not auto-initialize.
 
-```ts
-target: (doc) => doc?.querySelector('[data-page-content]') ?? null
+## Public functions and types
+
+### `createBoost(options?: BoostOptions): Boost`
+
+Creates a navigation controller. Construction resolves and freezes the
+configuration shape; listeners are attached by `start()`.
+
+### `getBoost(): Boost | null`
+
+Returns the root entry's auto-created instance. Returns `null` when the root
+entry has not auto-initialized or when called outside a browser environment.
+
+### `Boost`
+
+| Member | Signature | Behavior |
+| --- | --- | --- |
+| `options` | `readonly ResolvedBoostOptions` | Resolved configuration for this instance. |
+| `start()` | `this` | Attaches delegated click/submit/popstate listeners. Safe to call repeatedly. |
+| `stop()` | `this` | Removes listeners, aborts active requests, clears prefetch/cache memory, removes the announcement region, and restores the previous `history.scrollRestoration` value. Safe to call repeatedly. |
+| `navigate(url, options?)` | `Promise<boolean>` | Performs programmatic same-origin navigation. `true` means a successful response was swapped or a 204/205 was handled. `false` means rejected, canceled, aborted, or failed. |
+| `prefetch(url)` | `Promise<boolean>` | Prefetches an eligible URL if prefetch is enabled. Returns false when disabled, excluded, blocked, aborted, or unsuccessful. |
+| `clearCache(url?)` | `this` | Clears all navigation and prefetch entries, or all variants for one URL. |
+
+### `NavigateOptions`
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `method` | `string` | `'GET'` | Fetch method. GET/HEAD must not have a body. Form interception itself supports GET and POST. |
+| `body` | `BodyInit \| null` | `null` | Request body for methods that accept one. |
+| `headers` | `Record<string, string>` | `{}` | Headers for this navigation only; merged over configured headers. |
+| `push` | `boolean \| 'replace'` | `true` | Push history, replace current entry, or leave history unchanged. |
+| `element` | `Element \| null` | `null` | Element that initiated the navigation; included in event detail. |
+| `form` | `HTMLFormElement \| null` | `null` | Form that initiated the navigation; used for explicit native form fallback. |
+| `scrollY` | `number \| null` | `null` | Explicit scroll position to restore. |
+| `focusId` | `string \| null` | `null` | Internal/advanced focus restoration ID for history traversal. |
+
+### Event detail types
+
+- `BoostRequestDetail`: `url`, `method`, `element`, `form`, `headers`.
+- `BoostSwapDetail`: request detail plus `response` and parsed `document`.
+- `BoostDOMUpdateDetail`: swap detail plus live `target` and parsed `incoming` target.
+- `BoostErrorDetail`: request detail plus `error: unknown`.
+
+Other exported types include `BoostOptions`, `ResolvedBoostOptions`,
+`BoostHeaders`, `ProgressOptions`, `PrefetchOptions`,
+`ResolvedPrefetchOptions`, `NavigationCacheOptions`,
+`ResolvedNavigationCacheOptions`, `HeadUpdateMode`, `DOMUpdateContext`,
+`DOMSwapHandler`, `DOMScriptHandler`, and `MorphAdapter`.
+
+## Configuration reference
+
+### `BoostOptions`
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `scope` | `string` | `'[data-boost="true"]'` | Selector for boosted subtrees; the matching element is included. |
+| `linkSelector` | `string` | `'a[href]'` | Selector for links eligible for interception. |
+| `formSelector` | `string` | `'form'` | Selector for forms eligible for interception. |
+| `target` | `string \| ((document?: Document) => Element \| null)` | `'body'` | Live target and matching response target. String selectors are evaluated in both documents. |
+| `swapStrategy` | `'replace' \| 'morph'` | `'replace'` | Built-in native replacement or configured morph adapter. |
+| `morphAdapter` | `MorphAdapter` | — | Synchronous morph adapter, required for morph mode unless `swapHandler` is supplied. |
+| `swapHandler` | `DOMSwapHandler` | — | Custom synchronous update that overrides the built-in strategy. |
+| `scriptHandler` | `DOMScriptHandler` | — | Explicit processing hook for detached response scripts. It may return a Promise. |
+| `head` | `'title' \| 'metadata' \| false` | `'title'` | Update title, title plus allowlisted descriptive metadata, or no head fields. |
+| `createHTML` | `(html: string) => string \| object` | — | Host-owned Trusted Types hook for DOMParser input. Must return TrustedHTML under strict enforcement. Does not sanitize. |
+| `history` | `boolean` | `true` | Use History API and handle only boost-owned popstate entries. |
+| `scroll` | `boolean` | `true` | Save/restore scroll, follow URL hashes, and otherwise scroll to top. |
+| `focus` | `boolean \| string` | `'auto'` | Automatically focus main content when prior focus is removed; selector or `'target'` chooses another target; false disables it. |
+| `announce` | `boolean` | `true` | Announce successful navigation through a polite live region. |
+| `executeScripts` | `boolean` | `false` | Deprecated compatibility option. It is ignored; scripts are never automatically executed. |
+| `nonce` | `string` | `''` | CSP nonce applied to progress styles and exposed to explicit script handlers. |
+| `maxResponseBytes` | `number` | `2 * 1024 * 1024` | Navigation response body limit in bytes. Zero disables the navigation body limit; prefetch retains its own 2 MiB cap. |
+| `requestTimeoutMs` | `number` | `0` | Abort a request after this many milliseconds. Zero disables timeout. |
+| `fallbackToNativeForm` | `boolean` | `false` | Retry a failed non-GET form through native submit. May duplicate server-side effects. |
+| `progress` | `boolean \| ProgressOptions` | `true` | Enable/configure built-in progress UI or disable with false. |
+| `prefetch` | `PrefetchOptions` | `{ enabled: false }` | Optional speculative GET requests. |
+| `cache` | `NavigationCacheOptions` | `{ enabled: false }` | Optional per-instance navigation LRU. |
+| `headers` | `BoostHeaders` | `{}` | Static headers or a function returning headers synchronously/asynchronously. |
+
+`BoostHeaders` is `Record<string, string>` or a function returning that record
+or a `Promise` of it. Per-navigation headers passed to `navigate()` override
+configured headers.
+
+### `ProgressOptions`
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `minimum` | `number` | `0.08` |
+| `easing` | `string` | `'ease'` |
+| `speed` | `number` | `200` ms |
+| `trickle` | `boolean` | `true` |
+| `trickleSpeed` | `number` | `800` ms |
+| `showSpinner` | `boolean` | `true` |
+| `parent` | `string` | `'body'` |
+| `template` | `string` | Built-in template |
+
+The custom template should follow `#nprogress`, `.bar`, and `.spinner`
+conventions. It is parsed with DOMParser and filtered before insertion. Under
+Trusted Types enforcement, the host `createHTML` hook is also used for this
+input. The progress stylesheet receives `nonce` when configured.
+
+### `PrefetchOptions`
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `enabled` | `boolean` | `false` | Enable prefetch. |
+| `strategy` | `'hover' \| 'pointerdown' \| 'viewport' \| array` | `'hover'` | One or more prefetch triggers. |
+| `delay` | `number` | `100` ms | Hover delay. |
+| `maxConcurrent` | `number` | `2` | Concurrent requests, capped at 8. |
+| `exclude` | `string[]` | `[]` | Excluded path prefixes. |
+
+Prefetch is GET-only, same-origin, deduplicates in-flight URLs, and does not
+mutate DOM/history or dispatch navigation lifecycle events. It is skipped while
+offline, when Save-Data is enabled, on 2g/slow-2g, or below the configured
+network downlink threshold. The queue is bounded, and speculative work is
+canceled when it is no longer useful. Only successful same-origin HTML
+responses explicitly marked `Cache-Control: public` are retained. Server
+freshness directives and `Vary` are enforced.
+
+### `NavigationCacheOptions`
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `enabled` | `boolean` | `false` | Enable in-memory cache. |
+| `maxEntries` | `number` | `20` | LRU entry limit, capped at 500. |
+| `maxAge` | `number` | `30000` ms | Local freshness upper bound. |
+| `exclude` | `string[]` | `[]` | Additional excluded path prefixes. |
+
+The cache stores only status-200 same-origin HTML GET responses with explicit
+`Cache-Control: public`. It rejects `no-store`, `no-cache`, `private`, stale
+freshness, `Vary: Cookie`, `Vary: *`, and `Vary` fields not represented by
+explicit request headers. Authorization is included in the request-header key.
+HttpOnly cookies are not readable from JavaScript; the server must guarantee
+that a public response is reusable across users and must not set cookies on
+such responses. State-changing requests clear cache and prefetch state before
+and after the request. Call `clearCache()` after external auth or tenant changes.
+
+## Lifecycle events
+
+Events are dispatched on `document` and bubble. The lifecycle for a successful
+navigation is:
+
+```text
+boost:before-request
+  -> fetch and validate response / final URL
+  -> boost:before-swap
+  -> boost:before-dom-update
+  -> DOM update, head update, history, scroll, focus, announcement
+  -> boost:after-dom-update
+  -> invoke explicit scriptHandler, if configured
+  -> boost:after-swap
 ```
 
-The legacy zero-argument callback remains supported. It selects the live
-target and uses the response body's children as incoming content.
+| Event | Cancelable | Detail type |
+| --- | --- | --- |
+| `boost:before-request` | Yes | `BoostRequestDetail` |
+| `boost:before-swap` | Yes | `BoostSwapDetail` |
+| `boost:before-dom-update` | Yes | `BoostDOMUpdateDetail` |
+| `boost:after-dom-update` | No | `BoostDOMUpdateDetail` |
+| `boost:after-swap` | No | `BoostSwapDetail` |
+| `boost:error` | Yes for navigation failures; no for post-swap script-handler failures | `BoostErrorDetail` |
 
-## Swap strategies
-
-The default swapStrategy is 'replace'. It uses native DocumentFragment and
-Element.replaceChildren() to move already-parsed nodes without serializing or
-parsing HTML again. The target element is preserved; its descendants are
-replaced.
+Calling `preventDefault()` on `boost:before-request` prevents Fetch. Canceling
+`boost:before-swap` prevents the swap after response validation. Canceling
+`boost:before-dom-update` prevents DOM mutation after target validation.
+Canceling a cancelable `boost:error` opts out of hard-navigation fallback and
+leaves the current document in place. Script-handler errors are reported
+non-cancelably because the DOM has already been committed.
 
 ```ts
-createBoost({ target: '#content', swapStrategy: 'replace' })
+import type { BoostRequestDetail } from 'boost-html/core'
+
+document.addEventListener('boost:before-request', (event) => {
+  const { url } = (event as CustomEvent<BoostRequestDetail>).detail
+  if (url.includes('/logout')) event.preventDefault()
+})
 ```
 
-Morphing is optional and has no bundled implementation:
+## Navigation and form behavior
+
+### Links
+
+Only links inside the configured scope and matching `linkSelector` are
+considered. Cross-origin links, non-HTTP(S) schemes, `target` other than
+`_self`, downloads, `aria-disabled="true"`, `rel="external"`, same-document
+hashes, modified clicks, and non-primary clicks remain native.
+
+### Forms
+
+Only forms inside the configured scope and matching `formSelector` are
+considered. `GET` and `POST` are supported for intercepted forms. `dialog`
+submissions, cross-origin actions, and non-`_self` targets remain native.
+
+- GET form fields are appended to the action query. File inputs contribute the
+  file name, not file contents.
+- POST honors `enctype`: urlencoded by default, multipart for file uploads, and
+  `text/plain` when requested.
+- Submitter `formaction`, `formmethod`, `formenctype`, and `formtarget` override
+  form attributes. Image inputs submit `.x` / `.y` coordinates.
+- A form is locked against duplicate boosted submissions while its request is
+  pending.
+- A failed GET request falls back to a native top-level navigation. Failed
+  non-idempotent forms are not automatically replayed. `fallbackToNativeForm`
+  explicitly opts into possible duplicate side effects.
+
+### Responses and redirects
+
+A response must be successful and declare `text/html` or
+`application/xhtml+xml`. The body is limited to 2 MiB by default. The final URL
+after redirects must be same-origin HTTP(S), contain no embedded credentials,
+and is used for history. A 204/205 is treated as successful without a DOM swap.
+The response must parse into a valid HTML document and contain the configured
+target. The library does not validate every HTML conformance rule.
+
+### History, scroll and focus
+
+Successful navigations push history by default; `push: 'replace'` replaces the
+current entry, and `push: false` avoids a new history entry. Existing
+`history.state` is retained inside a namespaced `__boostHtml` state wrapper.
+Only entries marked by boost-html are handled on `popstate`; unrelated router
+entries are left untouched. Same-URL pushes are replaced rather than
+duplicated. If a History API update fails after the swap, a native navigation is
+started to keep URL and content consistent.
+
+When enabled, the outgoing scroll offset and focused element ID are saved.
+Back/forward restores the saved position and focus, hashes scroll to their
+anchor, and other successful navigations scroll to the top. Focus defaults to
+`main`, `[role="main"]`, or `h1` only when previous focus was removed. A polite
+live region announces successful navigation. `stop()` restores the previous
+`history.scrollRestoration` value and removes the announcement region.
+
+## DOM update extension points
+
+### Target selection
+
+A string target selector is resolved in the live document before the request
+and in the parsed response document after it. Both targets must exist. The live
+target element remains; its children are replaced.
+
+A document-aware callback can choose a target in each document:
 
 ```ts
-import { createBoost } from 'boost-html/core'
-import { morph } from 'your-morph-adapter'
+createBoost({
+  target: (doc) => doc?.querySelector('[data-page-content]') ?? null,
+})
+```
 
+Legacy zero-argument target callbacks remain supported; they select the live
+target and use the response body's children as incoming content.
+
+### Native replacement and morph adapters
+
+The default `replace` strategy moves already-parsed nodes using native DOM
+operations. It does not preserve descendant node identity or form-control
+state. `morph` requires a synchronous `morphAdapter` or `swapHandler`.
+
+```ts
 createBoost({
   target: '#content',
   swapStrategy: 'morph',
   morphAdapter: {
-    morph(target, incoming) {
-      morph(target, incoming)
+    morph(target, incoming, context) {
+      myMorphLibrary(target, incoming, context)
     },
   },
 })
 ```
 
-The adapter must update synchronously. swapStrategy: 'morph' requires a
-morphAdapter unless a custom swapHandler is supplied. swapHandler overrides
-the built-in strategy and is also synchronous so the engine can keep response
-ownership and DOM commits atomic with respect to newer navigations.
+`DOMSwapHandler` is a synchronous callback receiving `DOMUpdateContext` and
+overrides the built-in strategy. `DOMUpdateContext` contains `target`,
+`incoming`, parsed `document`, final validated `url`, `response`, and `nonce`.
 
-## Custom swap lifecycle
+### Head updates
 
-Events are dispatched on document and bubble:
+- `head: 'title'` (default) updates `document.title`.
+- `head: 'metadata'` also synchronizes a conservative allowlist of descriptive
+  meta tags: description, keywords, author, robots, theme-color,
+  application-name, color-scheme, and selected Open Graph properties.
+- `head: false` leaves the current head unchanged.
 
-| Event | Cancelable | Meaning |
-| --- | --- | --- |
-| boost:before-swap | yes | Response document has been parsed and validated. |
-| boost:before-dom-update | yes | Both live and response targets are resolved; cancel to prevent mutation. |
-| boost:after-dom-update | no | DOM update and configured head updates have completed. |
-| boost:after-swap | no | Swap lifecycle has completed, including explicit script handler invocation. |
+Response CSP, `http-equiv`, charset, `<base>`, links, stylesheets, and scripts
+are not copied.
 
-boost:before-dom-update and boost:after-dom-update carry
-BoostDOMUpdateDetail: normal request/response detail plus target and incoming.
-With the native replace strategy, incoming's child nodes are moved into target;
-after the update, inspect target rather than expecting incoming to retain them.
+### Script handling and Trusted Types
 
-## Head metadata
+Scripts in the selected response subtree are removed and never automatically
+executed. The deprecated `executeScripts` option is ignored. If an application
+supplies `scriptHandler`, it receives detached script nodes and the update
+context; it is responsible for validating and explicitly loading any approved
+script. A Promise returned by the handler is not awaited by navigation. Errors
+are logged and emitted as non-cancelable `boost:error` events after the swap.
 
-head: 'title' (default) updates document.title only.
-head: 'metadata' also synchronizes a conservative allowlist:
-description, keywords, author, robots, theme-color, application-name,
-color-scheme and selected Open Graph properties.
-head: false leaves all current head fields unchanged.
+Under `require-trusted-types-for 'script'`, provide `createHTML` backed by a
+host-owned Trusted Types policy and return its `TrustedHTML` value. The hook is
+used for response HTML and custom progress templates. It is not a sanitizer;
+do not create a permissive policy just to suppress browser errors. Pass `nonce`
+for the progress stylesheet and to expose the nonce to the script handler.
 
-The engine does not copy response http-equiv metadata, CSP, charset, base,
-links, stylesheets or scripts. It does not merge arbitrary head markup.
+The active-content filter is defense in depth, not a general-purpose HTML
+sanitizer. See [SECURITY.md](./SECURITY.md) and
+[the full audit](./SECURITY.md) for residual risks and server responsibilities.
 
-## Script handling and Trusted Types
+## Migration
 
-Scripts in the selected response subtree are removed before insertion.
-Embedded browsing contexts, response style elements, inline event handlers,
-`is`, `srcdoc`, inline CSS, `srcset`, ping attributes and unsafe URL schemes are
-also filtered as defense in depth. Raster image data URLs are retained only on
-`img` elements. A source-level active-markup check skips the filtering traversal
-for ordinary documents. This is not a general-purpose HTML sanitizer.
-
-executeScripts is deprecated and ignored. To opt into application-specific
-processing, provide scriptHandler. It receives detached script elements and
-the update context (including the final URL and configured CSP nonce). The
-handler is responsible for validating script sources, creating/inserting any
-script elements, and obeying CSP. It may return a Promise; navigation does not
-wait for that work, and asynchronous failures are reported without rolling
-back the already-committed DOM. The engine itself never executes inline or
-external response scripts.
-
-For a page enforcing Trusted Types, `createHTML` can call the host application's
-Trusted Types policy and return its TrustedHTML result to both response and
-custom progress-template DOM parsing. boost-html does not create a policy and
-does not claim to sanitize content. Under a strict Trusted Types CSP, returning
-a plain string may still be rejected by the browser.
-
-## History, scroll and accessibility
-
-The History Engine uses the browser's native History API. A successful
-navigation pushes a new entry by default; pass `{ push: 'replace' }` to replace
-the current entry, or `{ push: false }` for a history traversal that must not
-create another entry. A push to the current URL is converted to a replacement
-to avoid duplicate entries. Redirects are committed using the final validated
-same-origin URL, so the address bar follows the document that was rendered.
-If a History API write fails after a swap, the engine starts a native navigation
-to the final URL rather than leaving the address bar and content divergent.
-
-Boost-owned entries are marked with a compact, versioned `__boostHtml` field
-inside `history.state`. It stores the outgoing scroll offset and, when
-available, the focused element's ID. Existing object state is copied forward
-and retained. Non-plain application state values (for example arrays or
-dates) are retained under `__boostHtmlOriginalState` when a wrapper is required. Only entries carrying
-the boost marker are handled on `popstate`; entries owned by the browser or
-another router are left alone.
-
-When history and scroll management are enabled, the engine temporarily sets
-`history.scrollRestoration = 'manual'` and restores the previous value on
-`stop()`. It saves the outgoing entry before a push, restores the saved
-position on back/forward, scrolls to a decoded hash target when present, and
-otherwise scrolls to the top. Set `scroll: false` to leave scrolling to the
-browser/application. Same-document hash links are not intercepted, preserving
-native anchor behavior.
-
-Focus defaults to automatic focus of the response's `main`, `[role="main"]`,
-or `h1`, but only when the old focused element was removed. A hash target or
-the previous entry's focused element ID takes precedence when available.
-Configure `focus: '#selector'` or `focus: 'target'` to choose another target;
-use `focus: false` to disable focus management. Persistent controls outside
-the swap target retain focus and are not interrupted. Newly focused non-
-interactive landmarks receive temporary `tabindex="-1"` which is removed
-when focus leaves.
-
-Successful navigations are announced through a visually hidden polite live
-region (`role="status"`, `aria-live="polite"`). Set `announce: false` to
-disable it. Native links and forms keep their browser keyboard activation and
-tab order; boost-html delegates click and submit events rather than replacing
-keyboard behavior. `stop()` removes the live region, listeners and restores
-the previous scroll-restoration setting.
-
-## Morph adapter evaluation
-
-No morphing package is installed by boost-html. The adapter boundary is stable
-enough to test candidates without changing the default bundle.
-
-| Candidate | Performance evidence | Maintenance / license | Compatibility considerations |
-| --- | --- | --- | --- |
-| Idiomorph | Maintainers publish a manual benchmark suite comparing it with morphdom; the benchmarks are not run in CI, so no universal speed winner is assumed here. Its algorithm builds descendant ID sets to match across nested/reordered structures. | v0.8.0; 0BSD; npm metadata showed a release about a month before this audit. | Supports cross-document morphing and richer structural matching; useful where preserving nested node identity and form/focus state matters. Its algorithm does more matching work than a simple sibling-ID approach. |
-| morphdom | Its project describes it as a fast real-DOM morphing library and maintains a benchmark suite. No project-specific boost-html comparison has been run. | v2.7.8; MIT; npm metadata showed a release about eight months before this audit. | Mature, widely adopted element-to-element adapter with a simpler matching model; keyed matching is primarily based on IDs among siblings, so deeply reordered trees may need explicit keys/hooks. |
-
-Sources:
-- https://github.com/bigskysoftware/idiomorph
-- https://github.com/bigskysoftware/idiomorph/blob/main/PERFORMANCE.md
-- https://github.com/bigskysoftware/idiomorph/releases
-- https://github.com/patrick-steele-idem/morphdom
-- https://www.npmjs.com/package/idiomorph
-- https://www.npmjs.com/package/morphdom
-
-**Decision:** keep native replacement as the default and do not add either
-package now. boost-html's own benchmark currently measures full navigation
-rather than morph-only DOM work, so it cannot justify a dependency. Before
-selecting an adapter, benchmark replace, Idiomorph and morphdom against the
-same representative boost-html response fixtures in Chromium, Firefox and
-WebKit, measuring median/p95 update time, node identity/focus preservation,
-and bundle cost. A future adapter can be installed by the application without
-changing the default core.
-
-## In-memory navigation cache
-
-The optional navigation cache is configured on `createBoost()` and is disabled
-by default:
-
-```ts
-const boost = createBoost({
-  cache: {
-    enabled: true,
-    maxEntries: 20,
-    maxAge: 30_000,
-    exclude: ['/reports/private'],
-  },
-})
-
-boost.clearCache()
-boost.clearCache('/catalog')
-```
-
-The cache is a per-instance LRU of same-origin HTML GET responses. A response
-must explicitly opt in with `Cache-Control: public`; `no-store`, `no-cache`,
-`private`, stale `max-age` / `Expires` / `Age`, `Vary: Cookie`,
-`Vary: *`, and untracked `Vary` headers prevent storage. The configured
-`maxAge` is an upper bound, not an override of shorter server freshness.
-Explicit request headers are included in the cache key, including
-`Authorization`; browser-managed cookies cannot be inspected, so servers must
-never mark user-specific responses public or set cookies on cacheable responses.
-
-Sensitive path segments are excluded by default. Additional path prefixes can
-be supplied with `exclude`; links can opt out with `data-no-cache` or
-`data-cache="false"`. State-changing requests invalidate cache and prefetch
-entries before and after the request. Call `boost.clearCache()` when
-authentication or tenant context changes outside boosted navigation. When
-prefetch is enabled, its eligible public responses are shared with the
-navigation cache.
+See the [migration guide](./MIGRATION.md) for breaking changes and upgrade
+steps from the 0.1.x development line to the planned stable 1.0 API.

@@ -1,134 +1,136 @@
-# Production release readiness report
+# Production readiness report — v1.0.0 preparation
 
-**Audit date:** 2026-11-03  
-**Package version:** `0.1.0` (unchanged)  
-**Release status:** **Not ready to publish yet**  
+**Audit date:** 2026-11-03
+
+**Current package version:** `0.1.0` (unchanged)
+
+**Planned release:** `1.0.0`
+
+**Release status:** **BLOCKED — not approved for publication**
 **npm publish:** Not executed  
-**GitHub Release:** Not created
+**GitHub Release / tag:** Not created
 
 ## Executive summary
 
-The repository now has a reproducible local quality pipeline, a three-engine
-Playwright project matrix, package export/content verification, and a GitHub
-Actions workflow for Node and browser matrices. The local validation completed
-successfully on this workstation for Chromium, Firefox, and WebKit.
+The implementation, documentation, package build, local test matrix, and
+package archive are prepared for the first stable release candidate. The
+working tree is deliberately still version `0.1.0`.
 
-This report does not certify production readiness or authorize a release. The
-GitHub Actions workflow has been committed but has not yet run on GitHub. The
-package is still version `0.1.0`, and repository metadata is incomplete because
-no Git remote or `package.json.repository` URL is configured in this checkout.
-That metadata must be supplied and verified before a stable release.
+The release cannot be approved yet. This checkout has no Git remote, and the
+canonical public repository URL is unknown. Consequently `repository`,
+`homepage`, and `bugs` metadata are absent, npm Trusted Publishing cannot be
+bound to the intended repository/workflow, and GitHub Actions has not been
+verified on the canonical remote. The metadata verifier fails for those three
+missing fields by design.
 
 ## Local validation results
 
 | Area | Result | Evidence |
 | --- | --- | --- |
-| Lint | PASS | `npm run lint` via `npm run check` |
+| Biome lint | PASS | `npm run lint` |
 | TypeScript | PASS | `npm run typecheck` |
-| Vitest unit / component suite | PASS | 148 tests across 9 files |
-| Coverage | PASS | 84.39% statements, 79.96% branches, 91.52% functions, 89.96% lines |
-| ESM build | PASS | `dist/index.js`, `dist/core.js` and shared chunks |
-| CJS build | PASS | `dist/index.cjs`, `dist/core.cjs` and shared chunks |
-| Browser bundles | PASS | `dist/index.global.js`, `dist/core.global.js` |
+| Vitest | PASS | 149 tests across 9 files |
+| Coverage | PASS | 84.47% statements, 80.08% branches, 91.52% functions, 89.96% lines |
+| ESM build | PASS | Root/core ESM entries and shared chunks generated |
+| CommonJS build | PASS | Root/core CJS entries and shared chunks generated |
+| Browser bundles | PASS | Root/core IIFE bundles generated with minification |
 | TypeScript declarations | PASS | `.d.ts` and `.d.cts` for root and core entries |
-| Bundle size gates | PASS | all configured size-limit budgets passed |
-| Package exports | PASS | ESM and CJS imports verified; root/core expose `createBoost()` |
-| Package contents | PASS | `npm pack --dry-run --json`: 39 files, 191,330 bytes |
+| Bundle size gates | PASS | ESM 8.61 kB ceiling; core IIFE 12.5 kB; browser IIFE 12.6 kB |
+| Package exports | PASS | ESM/CJS imports resolve; root/core expose `createBoost()` |
+| Package contents | PASS | `npm pack --dry-run --json`: 40 files, 191,663 bytes |
+| Provenance config | PASS | `publishConfig.provenance: true` |
+| MIT license | PASS | `license: MIT` and `LICENSE` file |
+| Full npm dependency audit | PASS | `npm audit`: 0 vulnerabilities |
 | Chromium | PASS | 15 / 15 Playwright tests |
 | Firefox | PASS | 14 passed, 1 skipped (Chromium-only Trusted Types test) |
 | WebKit | PASS | 14 passed, 1 skipped (Chromium-only Trusted Types test) |
 | Combined browser matrix | PASS | 43 passed, 2 skipped, 45 total |
-| `npm audit --omit=dev` | PASS | 0 production dependency vulnerabilities reported |
-| GitHub Actions | Pending | Workflow committed; no remote CI run available yet |
+| Repository metadata | BLOCKED | `repository.url`, `homepage`, and `bugs.url` missing |
+| Remote GitHub Actions | PENDING | Workflow committed but not run on canonical remote |
+| npm Trusted Publisher | PENDING | npm account configuration not available from this checkout |
 
 ### Browser coverage
 
-The browser suite exercises:
+The real-browser suite covers automatic initialization, link navigation,
+back/forward, hash scrolling, POST redirects, multipart file uploads, custom
+response targets, script non-execution, transient network failure, superseded
+request cancellation, keyboard activation, live-region announcements, and
+repeated navigation.
 
-- automatic initialization and boosted link navigation;
-- browser back/forward, hash navigation, and scroll restoration;
-- boosted POST forms, redirects, multipart uploads, and file inputs;
-- native fallback after HTTP 500 and transient network failure;
-- superseded in-flight navigation cancellation;
-- no execution of scripts in fetched response HTML;
-- strict CSP + Trusted Types parsing and progress-style nonce behavior in
-  Chromium, where the Trusted Types API is available;
-- 24 repeated navigations with bounded DOM state in all three engines, plus a
-  Chromium CDP heap-growth smoke threshold of 5 MiB.
+The repeated-navigation test runs in all three engines and checks bounded DOM
+state. Chromium additionally uses CDP to collect garbage and enforce a 5 MiB
+heap-growth smoke threshold. This is a regression test, not proof that memory
+leaks are impossible.
 
-The two skips are intentional: the strict Trusted Types test is Chromium-only.
-The repeated-navigation test runs in all three engines; only Chromium exposes
-the CDP heap metric used by the additional heap assertion. This is a regression
-smoke test, not proof that no memory leak exists.
+Strict CSP + Trusted Types parsing and progress-style nonce behavior are tested
+in Chromium. Firefox and WebKit skip that test because the Trusted Types API is
+not available in those engines in this test matrix.
 
-WebKit uses its GTK build in headed mode under Xvfb on Linux. The GitHub Actions
-job installs Playwright's WebKit system dependencies and runs it through
-`xvfb-run`.
+WebKit runs in headed mode under Xvfb on Linux. The GitHub Actions workflow
+installs WebKit dependencies and invokes the WebKit project with `xvfb-run`.
 
-## Build and package checks
+## Documentation prepared
 
-The current build emits:
+- `README.md` rewritten with installation, automatic/manual initialization,
+  all options, navigation, forms, lifecycle events, API methods, security,
+  browser support, examples, and development commands.
+- `docs/API.md` contains the public API, options, event detail types, lifecycle,
+  form handling, DOM extension points, prefetch, cache, and Trusted Types.
+- `docs/MIGRATION.md` documents the 0.1.x development line to planned 1.0.0.
+- `docs/SECURITY.md` records audit findings, severity, mitigations, and risks.
+- `CHANGELOG.md` has an Unreleased section; it does not claim 1.0.0 is released.
+- `docs/releases/v1.0.0.md` contains draft release notes marked not approved.
+- `docs/NPM_PUBLISH_CHECKLIST.md` contains manual release and provenance steps.
 
-- ESM runtime entry points and shared chunks;
-- CommonJS runtime entry points and shared chunks;
-- browser IIFE bundles for root and core;
-- `.d.ts` and `.d.cts` declaration files.
+## Package and provenance validation
 
-`npm run verify:package` validates the declared export targets, imports the ESM
-and CJS entry points, checks the declarations and browser global bundles, then
-runs `npm pack --dry-run --json` and checks the resulting package file list.
-Development-only `tests/`, `e2e/`, `benchmarks/`, `.github/`, and `scripts/`
-files are rejected from the package archive.
+The package whitelist includes the runtime bundles, declarations, README,
+license, security policy, API reference, migration guide, and changelog. It
+excludes tests, benchmarks, CI files, and release-preparation scripts.
 
-The package archive currently contains 39 files and is 191,478 bytes. The
-version remains `0.1.0`; this phase did not change the version.
+`scripts/verify-package.mjs` checks ESM/CJS export targets, imports the built
+ESM/CJS entry points, checks IIFE bundles and declaration files, validates
+provenance configuration, and inspects the `npm pack --dry-run --json` file
+list. The archive currently contains 40 files and is 191,663 bytes.
 
-## CI pipeline added
+`publishConfig.provenance` is enabled. npm documentation states that GitHub
+Actions Trusted Publishing uses OIDC, requires a public repository whose URL
+matches `package.json`, a GitHub-hosted runner, `id-token: write`, npm CLI
+11.5.1+, and Node 22.14.0+; trusted publishing automatically generates
+provenance attestations. Those external account/repository settings are not
+configured here. See the official npm documentation:
 
-`.github/workflows/ci.yml` now defines:
+- https://docs.npmjs.com/trusted-publishers/
+- https://docs.npmjs.com/generating-provenance-statements/
 
-1. A quality matrix on Node 20, 22 and 24: install, production dependency
-   audit, lint, typecheck, Vitest with coverage, build, bundle-size gates,
-   package verification, and `npm pack --dry-run`.
-2. A browser integration matrix on Chromium, Firefox and WebKit, including
-   browser installation and test artifact upload on failures.
-3. A manual-only Chromium benchmark job.
+No publish workflow was added. The existing CI workflow only runs tests,
+builds, package checks, and manual benchmarks; it cannot publish a package.
 
-The workflow has not been executed by GitHub in this task. A successful local
-run cannot establish that hosted runners, remote caches, action permissions,
-or branch protection settings are configured correctly.
-
-## Remaining release blockers
+## Remaining blockers
 
 | Priority | Blocker | Required action |
 | --- | --- | --- |
-| High | `package.json.repository.url` is missing and `git remote -v` returns no remote. | Supply the canonical public repository URL; do not guess an owner or repository. Add and validate `repository`, `bugs`, and `homepage` metadata in the release-preparation phase. |
-| High | GitHub Actions has not run on the remote repository. | Push the CI commit and verify all Node and browser matrix jobs on GitHub. Resolve any runner-specific failures. |
-| Medium | Node 18 is declared in the package engine range but is not in the current CI matrix. | Confirm the minimum supported runtime; either add Node 18 coverage where the dev toolchain permits it or raise/document the engine floor in the release-preparation phase. |
-| Medium | Strict CSP / Trusted Types is verified only in Chromium. | Keep the documented browser support boundary; test actual application CSP headers and policy integration in supported deployment browsers. |
-| Medium | Heap regression coverage is a threshold smoke test, not a leak proof. | Run longer soak tests against representative applications and monitor browser-native memory / RSS where practical. |
-| Medium | Security depends on server HTML trust, CSRF controls, and cache-public correctness. | Complete application-level security review using [`SECURITY.md`](./SECURITY.md) before deployment. |
-| Low | Release documentation and changelog still need stable-release curation. | Complete the v1.0.0 documentation and release checklist only after the blockers above are reviewed. |
+| Critical | Canonical public repository URL unknown; no Git remote is configured. | Provide the exact public repository URL. Do not infer or fabricate an owner/name. |
+| High | `repository`, `homepage`, and `bugs` metadata are missing. | Set matching URLs after the canonical repository is confirmed; rerun `npm run verify:release-metadata`. |
+| High | npm Trusted Publishing is not configured. | Configure the exact GitHub owner, repository, workflow filename, and optional environment in npm package settings after the repository is public. |
+| High | GitHub Actions has not run on the canonical remote. | Push the commits and verify all Node and browser matrix jobs on GitHub. |
+| Medium | `engines.node` remains `>=18`, while the CI matrix tests Node 20/22/24. | Decide whether to add Node 18 runtime smoke coverage or raise/document the minimum Node version before stable release. |
+| Medium | 5 KiB core ESM gzip target remains open. | Continue optimization if 5 KiB is a hard v1.0.0 requirement; current 8.61 kB is only a regression ceiling. |
+| Medium | Long-duration memory soak testing has not been performed. | Run representative application soak tests and monitor browser-native memory/RSS. |
+| Medium | Trusted Types test runs only in Chromium. | Validate the host application's actual CSP and policy integration in supported browsers. |
+| Low | `npm view boost-html version` returns registry E404 at audit time. | Confirm package-name availability in the intended npm account immediately before publication; 404 is not a reservation guarantee. |
 
-## Commands
+`npm run verify:release-metadata` currently exits with a blocker report for the
+missing `repository.url`, `homepage`, and `bugs.url`. This is expected and is
+not silently treated as a pass.
 
-```bash
-npm run lint
-npm run typecheck
-npm run test:unit
-npm run build
-npm run size
-npm run verify:package
-npm run test:integration
-npm pack --dry-run
-```
+## Final release restrictions
 
-## Release restrictions honored
+- `package.json.version` remains `0.1.0`.
+- No `npm publish` command was executed.
+- No GitHub Release or Git tag was created.
+- No active automatic publishing workflow was added.
+- Draft v1.0.0 release notes and checklist do not constitute release approval.
 
-- `npm publish` was not executed.
-- No GitHub Release or tag was created.
-- `package.json.version` was not changed to `1.0.0`.
-- No automatic release action is configured in the CI workflow.
-
-A stable release still requires explicit release approval after the remaining
-blockers have been resolved.
+The stable release remains blocked until repository metadata, npm Trusted
+Publishing, remote CI, and the explicit maintainer approval are complete.
