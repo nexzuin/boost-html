@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2026-11-03T15:02:25.870Z",
+  "environment": {
+    "platform": "linux",
+    "release": "7.0.0-34-generic",
+    "architecture": "x64",
+    "cpu": "Intel(R) Core(TM) i7-9700 CPU @ 3.00GHz",
+    "logicalCpus": 8,
+    "node": "v24.21.0",
+    "playwright": "1.64.1",
+    "chromium": "156.0.8078.4",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36",
+    "iterations": 10,
+    "artificialLatencyMs": 120,
+    "prefetchLeadTimeMs": 40
+  },
+  "scenarios": {
+    "baseline": {
+      "navigationLatency": {
+        "medianMs": 170.9,
+        "p95Ms": 192.1
+      },
+      "requestCount": 10,
+      "serverRequestCount": 10,
+      "responseBytes": 875280,
+      "iterations": 10
+    },
+    "pointerdownPrefetch": {
+      "navigationLatency": {
+        "medianMs": 145.1,
+        "p95Ms": 153.6
+      },
+      "requestCount": 10,
+      "serverRequestCount": 10,
+      "responseBytes": 875280,
+      "iterations": 10
+    },
+    "unusedPrefetch": {
+      "unusedPrefetchRequests": 2,
+      "serverRequestCount": 2,
+      "unusedPrefetchResponseBytes": 10908
+    }
+  },
+  "note": "Local loopback benchmark with deterministic server-side latency injection; not a substitute for field RUM or mobile-network measurements."
+}

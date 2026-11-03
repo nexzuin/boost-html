@@ -5,7 +5,7 @@ export default defineConfig({
   format: ['esm', 'cjs', 'iife'],
   globalName: 'BoostHtml',
   dts: true,
-  splitting: false,
+  splitting: true,
   sourcemap: true,
   minify: true,
   clean: true,

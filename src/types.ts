@@ -32,6 +32,27 @@ export type BoostHeaders =
   | Record<string, string>
   | (() => Record<string, string> | Promise<Record<string, string>>)
 
+export interface PrefetchOptions {
+  /** Enable opportunistic same-origin GET prefetching. @default false */
+  enabled?: boolean
+  /** Trigger strategy or strategies. @default 'hover' */
+  strategy?: 'hover' | 'pointerdown' | 'viewport' | Array<'hover' | 'pointerdown' | 'viewport'>
+  /** Hover delay in milliseconds. @default 100 */
+  delay?: number
+  /** Maximum concurrent prefetch requests. @default 2 */
+  maxConcurrent?: number
+  /** Path prefixes that must never be prefetched, e.g. ['/logout', '/account/delete']. */
+  exclude?: string[]
+}
+
+export interface ResolvedPrefetchOptions {
+  enabled: boolean
+  strategy: Array<'hover' | 'pointerdown' | 'viewport'>
+  delay: number
+  maxConcurrent: number
+  exclude: string[]
+}
+
 export interface BoostOptions {
   /**
    * CSS selector that marks boosted subtrees.
@@ -96,6 +117,8 @@ export interface BoostOptions {
   fallbackToNativeForm?: boolean
   /** Show the native progress indicator. Pass `false` to disable it. @default true */
   progress?: boolean | ProgressOptions
+  /** Optional, conservative prefetch engine. Disabled by default. */
+  prefetch?: PrefetchOptions
   /** Extra headers sent with every boosted request. */
   headers?: BoostHeaders
 }
@@ -122,6 +145,7 @@ export interface ResolvedBoostOptions {
   fallbackToNativeForm: boolean
   progress: false | ProgressOptions
   headers: BoostHeaders
+  prefetch: ResolvedPrefetchOptions
 }
 
 export interface NavigateOptions {
@@ -179,4 +203,6 @@ export interface Boost {
   stop(): this
   /** Programmatically navigate. Resolves to `true` when the swap succeeded. */
   navigate(url: string | URL, options?: NavigateOptions): Promise<boolean>
+  /** Opportunistically prefetch an eligible same-origin HTML GET URL. */
+  prefetch(url: string | URL): Promise<boolean>
 }

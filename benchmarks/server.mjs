@@ -7,6 +7,9 @@ const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
 const port = Number(process.env.BENCH_PORT ?? 4174)
 const counts = { small: 10, medium: 100, large: 1_000 }
+const metrics = Object.fromEntries(
+  Object.keys(counts).map((name) => [name, { requests: 0, bytes: 0 }]),
+)
 
 function page(title, content) {
   return `<!doctype html>
@@ -15,7 +18,13 @@ function page(title, content) {
     <meta charset="utf-8" />
     <title>${title} · boost-html benchmark</title>
     <script>
-      window.boostHtmlConfig = { progress: false, executeScripts: false }
+      window.boostHtmlConfig = {
+        progress: false,
+        executeScripts: false,
+        prefetch: new URLSearchParams(location.search).has('prefetch')
+          ? { enabled: true, strategy: 'pointerdown', maxConcurrent: 2 }
+          : { enabled: false },
+      }
     </script>
     <script defer src="/boost-html.js"></script>
   </head>
@@ -45,6 +54,22 @@ function fixture(size) {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
 
+  if (url.pathname === '/__metrics/reset') {
+    for (const metric of Object.values(metrics)) {
+      metric.requests = 0
+      metric.bytes = 0
+    }
+    res.writeHead(204)
+    res.end()
+    return
+  }
+
+  if (url.pathname === '/__metrics') {
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify(metrics))
+    return
+  }
+
   if (url.pathname === '/boost-html.js') {
     try {
       const bundle = await readFile(join(root, 'dist', 'index.global.js'))
@@ -65,8 +90,14 @@ const server = createServer(async (req, res) => {
   }
 
   if (size in counts) {
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
-    res.end(fixture(size))
+    const body = fixture(size)
+    metrics[size].requests++
+    metrics[size].bytes += Buffer.byteLength(body)
+    res.writeHead(200, {
+      'content-type': 'text/html; charset=utf-8',
+      'content-length': Buffer.byteLength(body),
+    })
+    res.end(body)
     return
   }
 

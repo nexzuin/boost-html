@@ -29,6 +29,7 @@ import {
   isBoostHistoryState,
   rememberScrollPosition,
 } from '../history/history'
+import type { PrefetchEngine } from '../prefetch/engine'
 import { createProgress, type Progress } from '../progress'
 import { sendRequest } from '../request/request'
 import type {
@@ -68,6 +69,7 @@ function wasHandled(event: Event): boolean {
 class NavigationController implements Boost {
   readonly options: ResolvedBoostOptions
   private readonly progress: Progress
+  private prefetcher: Promise<PrefetchEngine> | null = null
   private controller: AbortController | null = null
   private readonly submittingForms = new WeakSet<HTMLFormElement>()
   private started = false
@@ -84,6 +86,11 @@ class NavigationController implements Boost {
     }
     this.started = true
     document.addEventListener('click', this.handleClick as EventListener)
+    const prefetcher = this.getPrefetcher()
+    if (prefetcher)
+      void prefetcher.then((engine) => {
+        if (this.started) engine.start()
+      })
     document.addEventListener('submit', this.handleSubmit as EventListener)
 
     if (this.options.history) {
@@ -109,6 +116,7 @@ class NavigationController implements Boost {
       window.removeEventListener('popstate', this.handlePopState as EventListener)
     }
 
+    if (this.prefetcher) void this.prefetcher.then((engine) => engine.stop())
     this.controller?.abort()
     this.controller = null
     this.progress.done()
@@ -123,6 +131,31 @@ class NavigationController implements Boost {
     }
     removeAnnouncementRegion()
     return this
+  }
+
+  async prefetch(input: string | URL): Promise<boolean> {
+    const engine = this.getPrefetcher()
+    return engine ? (await engine).prefetch(input) : false
+  }
+
+  private getPrefetcher(): Promise<PrefetchEngine> | null {
+    if (!this.options.prefetch.enabled) return null
+    if (!this.prefetcher) {
+      this.prefetcher = import('../prefetch/engine').then(
+        ({ PrefetchEngine: Engine }) =>
+          new Engine(
+            this.options.prefetch,
+            async () =>
+              typeof this.options.headers === 'function'
+                ? this.options.headers()
+                : this.options.headers,
+            this.options.scope,
+            this.options.linkSelector,
+            this.options.maxResponseBytes > 0 ? this.options.maxResponseBytes : 2 * 1024 * 1024,
+          ),
+      )
+    }
+    return this.prefetcher
   }
 
   async navigate(input: string | URL, init: NavigateOptions = {}): Promise<boolean> {
@@ -188,20 +221,29 @@ class NavigationController implements Boost {
         }, this.options.requestTimeoutMs)
       }
 
-      const response = await sendRequest({
-        url: url.href,
-        method,
-        body: init.body ?? null,
-        headers: detail.headers,
-        signal: controller.signal,
-      })
+      const prefetcher = method === 'GET' && !init.body ? this.getPrefetcher() : null
+      const cachedResponse = prefetcher
+        ? await (await prefetcher).take(url, controller.signal, detail.headers)
+        : null
+      if (!this.isCurrent(controller)) return false
+      const response =
+        cachedResponse ??
+        (await sendRequest({
+          url: url.href,
+          method,
+          body: init.body ?? null,
+          headers: detail.headers,
+          signal: controller.signal,
+        }))
 
       if (controller.signal.aborted) {
         if (controller.signal.reason?.name === 'TimeoutError') throw controller.signal.reason
         return false
       }
 
-      const finalUrlObject = this.resolveFinalUrl(response, url)
+      const cachedFinalUrl =
+        cachedResponse && prefetcher ? (await prefetcher).getFinalUrl(cachedResponse) : undefined
+      const finalUrlObject = this.resolveFinalUrl(response, url, cachedFinalUrl)
       const finalUrl = finalUrlObject.href
       if (response.status === 204 || response.status === 205) return true
       if (!response.ok) {
@@ -284,6 +326,7 @@ class NavigationController implements Boost {
       }
 
       this.dispatch('boost:after-swap', swapDetail, false)
+      if (this.prefetcher) void this.prefetcher.then((engine) => engine.refresh())
       return true
     } catch (error) {
       const timedOut = controller.signal.reason?.name === 'TimeoutError'
@@ -341,10 +384,10 @@ class NavigationController implements Boost {
    * origin or uses a non-http(s) scheme, otherwise URL and displayed content
    * can diverge and cross-origin HTML (with scripts) would be injected.
    */
-  private resolveFinalUrl(response: Response, requested: URL): URL {
+  private resolveFinalUrl(response: Response, requested: URL, cachedFinalUrl?: string): URL {
     let finalUrl: URL
     try {
-      finalUrl = new URL(response.url || requested.href)
+      finalUrl = new URL(cachedFinalUrl || response.url || requested.href)
     } catch {
       throw new Error(`Refusing to swap an invalid response URL "${response.url}"`)
     }

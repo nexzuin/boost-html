@@ -117,9 +117,36 @@ boost.start()
 | `fallbackToNativeForm`  | `boolean`                                                | `false`                              | Re-submit a failed POST form natively. Can duplicate server-side effects.   |
 | `progress`              | `boolean \| ProgressOptions`                             | `true`                               | Native progress bar. `false` disables it; an object configures its timing and appearance.         |
 | `headers`               | `Record<string, string> \| () => Record<string, string>` | `{}`                                 | Extra headers for every boosted request.                                    |
+| `prefetch`              | `PrefetchOptions`                                      | `{ enabled: false }`                  | Optional same-origin GET prefetching; see the Prefetch section below.       |
 
 `ProgressOptions` supports `minimum`, `easing`, `speed`, `trickle`,
 `trickleSpeed`, `showSpinner`, `parent` and `template`. The built-in progress UI uses native DOM and CSS and has no runtime dependency; custom templates use the `#nprogress`, `.bar` and `.spinner` conventions.
+
+### Prefetch
+
+Prefetch is opt-in and disabled by default. When enabled, it fetches eligible same-origin HTML **GET** links ahead of navigation and reuses the response when the user navigates. It does not update the DOM, history, progress UI or navigation events.
+
+```ts
+const boost = createBoost({
+  prefetch: {
+    enabled: true,
+    strategy: 'hover', // 'hover' | 'pointerdown' | 'viewport' | array of strategies
+    delay: 100,
+    maxConcurrent: 2,
+    exclude: ['/logout', '/account/delete'],
+  },
+})
+boost.start()
+
+// Manually prefetch an eligible URL.
+await boost.prefetch('/docs')
+```
+
+Prefetch uses delegated pointer listeners only for the selected strategies. Viewport mode uses `IntersectionObserver` with a 200px root margin. It deduplicates in-flight URLs, limits concurrency (maximum 8), keeps at most 8 responses for 30 seconds, and cancels queued or unclaimed pointer-triggered work when the pointer leaves. A navigation that claims an in-flight prefetch is allowed to finish; a queued prefetch is canceled so the user's navigation can start immediately. The queue is capped at 32 pending URLs. A cached response is reused only when its request headers match the navigation headers, so changed per-navigation or authentication headers trigger a normal request instead.
+
+Requests are skipped while offline, when `Save-Data` is enabled, on `2g` / `slow-2g`, or below 0.5 Mbps reported downlink. Only successful same-origin HTML responses are cached; cross-origin redirects, non-HTML responses, `Vary` on headers not explicitly sent by boost-html, `private`, `no-cache`, `no-store`, and oversized responses are rejected. Prefetch never sends POST requests and never invokes navigation fallback on errors.
+
+Links outside the configured boosted scope are ignored. Add `data-boost-prefetch="false"`, `data-no-prefetch`, or `data-boost-sensitive` to a link or an ancestor to exclude it. Links declaring a non-GET `data-method`, `data-turbo-method`, or `data-boost-method`, or confirmation attributes (`data-confirm`, `data-turbo-confirm`) are also excluded. Use `exclude` for sensitive path prefixes such as logout, account deletion, checkout or other session-changing endpoints. The manual API applies same-origin and network checks; route exclusions apply to manual calls too.
 
 ### Attributes
 
@@ -127,6 +154,8 @@ boost.start()
   (the element itself is included).
 - `data-boost="false"` — opt out for this element and its subtree. It wins over
   any boosted ancestor.
+- `data-boost-prefetch="false"`, `data-no-prefetch`, or `data-boost-sensitive` —
+  prevent speculative requests for this link and descendants.
 
 Links are left to the browser when they are external, have `target` other than
 `_self`, have `download`, `aria-disabled="true"`, `rel="external"`, or point
@@ -203,7 +232,7 @@ await boost.navigate('/dashboard', { push: 'replace' })
 boost.stop()
 ```
 
-`navigate()` only accepts same-origin `http(s)` URLs. It resolves to `true`
+`prefetch()` resolves to `true` when an eligible response was fetched or already cached; it resolves to `false` when disabled, excluded, constrained by network conditions, aborted, or unsuccessful. `navigate()` only accepts same-origin `http(s)` URLs. It resolves to `true`
 when the response was swapped in and `false` when the navigation was rejected,
 aborted, canceled, or failed.
 `stop()` removes the listeners, aborts in-flight requests, removes the
@@ -308,7 +337,9 @@ npm run bench
 `npm run check` runs lint, typecheck, coverage, build and the size gate.
 `npm run bench` measures navigation, request/body reading, HTML parsing,
 security filtering, DOM replacement, event delegation, retained JS heap and
-gzip bundle sizes. See [benchmark methodology and before/after results](./benchmarks/README.md).
+gzip bundle sizes. `npm run bench:prefetch` measures click-to-swap latency and
+network bytes with and without pointer-down prefetch under injected latency.
+See [benchmark methodology and before/after results](./benchmarks/README.md).
 The 5 KiB core ESM goal is still open; current size-limit thresholds are
 interim regression guards, not a claim that the target has been met.
 `npm run build` emits minified ESM, CJS, an IIFE browser bundle, sourcemaps and

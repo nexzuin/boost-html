@@ -1,6 +1,29 @@
 import type { BoostOptions, ResolvedBoostOptions } from '../types'
 
 const DEFAULT_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+
+function resolvePrefetchOptions(
+  options: BoostOptions['prefetch'],
+): ResolvedBoostOptions['prefetch'] {
+  const strategy = options?.strategy ?? 'hover'
+  const strategies = Array.isArray(strategy) ? strategy : [strategy]
+  const delay = options?.delay
+  const maxConcurrent = options?.maxConcurrent
+  return {
+    enabled: options?.enabled === true,
+    strategy: strategies.filter(
+      (item): item is 'hover' | 'pointerdown' | 'viewport' =>
+        item === 'hover' || item === 'pointerdown' || item === 'viewport',
+    ),
+    delay: typeof delay === 'number' && Number.isFinite(delay) && delay >= 0 ? delay : 100,
+    maxConcurrent:
+      typeof maxConcurrent === 'number' && Number.isInteger(maxConcurrent) && maxConcurrent > 0
+        ? Math.min(maxConcurrent, 8)
+        : 2,
+    exclude: options?.exclude ?? [],
+  }
+}
+
 export function resolveOptions(options: BoostOptions): ResolvedBoostOptions {
   const target = options.target ?? 'body'
   const maxResponseBytes =
@@ -61,5 +84,6 @@ export function resolveOptions(options: BoostOptions): ResolvedBoostOptions {
           ? options.progress
           : {},
     headers: options.headers ?? {},
+    prefetch: resolvePrefetchOptions(options.prefetch),
   }
 }

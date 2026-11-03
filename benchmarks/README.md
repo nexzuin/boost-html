@@ -19,6 +19,16 @@ Playwright, warms up the browser, and saves a JSON report in
 `benchmarks/results/production-baseline.json`. It requires
 `npx playwright install chromium`.
 
+### Prefetch-specific benchmark
+
+Run `npm run bench:prefetch` to compare a cold navigation with pointer-down
+prefetch under a controlled 120 ms response delay. It records click-to-swap
+median/p95, request count, response bytes, and two deliberately unused
+speculative requests. Override the workload with `PREFETCH_ITERATIONS` and
+`PREFETCH_LATENCY_MS`. Results are saved to
+`benchmarks/results/prefetch.json`. This synthetic test isolates the perceived
+latency trade-off; it does not predict gains on a particular mobile network.
+
 ## Fixture sizes
 
 | Fixture | Generated sections | Parsed elements |
@@ -55,16 +65,20 @@ p95 support it.
 
 ## Bundle budget
 
-The initial goal is core ESM <= 5 KiB minified + gzip. The current measured
-core is 7,543 bytes gzip, so this goal is **not met**. `npm run size` currently
-enforces interim regression ceilings (7.6 KiB core ESM, 7.7 KiB browser ESM,
-7.8 KiB core IIFE, 7.9 KiB browser IIFE). These ceilings keep the measured
-bundle from growing while the 5 KiB goal remains open; they do not redefine or
-claim success against that goal.
+The initial goal is core ESM <= 5 KiB minified + gzip. The current ESM
+shared runtime chunk is approximately 8.14 KiB gzip, so this goal is **not met**.
+The optional prefetch engine is a separate approximately 3.11 KiB gzip ESM chunk
+and is loaded dynamically only when prefetch is enabled or the manual API is
+called. The browser IIFE cannot split that optional code and includes it in the
+single bundle (approximately 10.46 KiB gzip). `npm run size` enforces interim
+ceilings for the shared ESM chunk, optional ESM chunk, and IIFE bundles; these
+ceilings do not redefine or claim success against the 5 KiB goal.
 
 ## Results
 
-See [comparison.md](results/comparison.md) for the before/after analysis and
-environment. The JSON files retain raw measurements:
+See [comparison.md](results/comparison.md) for the navigation pipeline before/after
+analysis and [prefetch-comparison.md](results/prefetch-comparison.md) for the
+prefetch latency/network trade-off. JSON reports retain raw measurements:
 - `results/production-baseline.json`
 - `results/production-after.json`
+- `results/prefetch.json`
