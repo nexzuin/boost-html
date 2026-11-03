@@ -285,9 +285,11 @@ below. Prefer server-side output encoding and a strict Content Security Policy.
 
 - Only same-origin `http(s)` navigations are intercepted. Redirects whose final
   URL is cross-origin or non-http(s) are rejected.
-- `<script>` elements are always removed before DOM insertion. Inline event
-  handler attributes (`on*`), `srcdoc`, and `javascript:` / `vbscript:` URL
-  attributes on response descendants are removed as defense in depth.
+- `<script>`, embedded browsing contexts (`iframe`, `object`, `embed`, etc.),
+  response styles, inline event handlers, `srcdoc`, inline CSS, `srcset`, ping
+  attributes and unsafe URL schemes are filtered from the selected response
+  subtree as defense in depth. Raster image data URLs are the only data URLs
+  retained, and only on `<img>` elements.
 - `executeScripts` is deprecated and has no effect. Scripts are never
   automatically executed, inline or external. An explicitly configured
   `scriptHandler` receives detached script nodes and may implement application-
@@ -305,10 +307,11 @@ below. Prefer server-side output encoding and a strict Content Security Policy.
   types are rejected.
 - Response bodies are limited to 2 MiB by default (`maxResponseBytes`).
 - Failed non-idempotent forms are never re-submitted automatically.
-- Pass `nonce` when your CSP requires one. The swap uses DOM node adoption
-  rather than `innerHTML`; `createHTML` can provide a Trusted Types policy result
-  for DOMParser input under strict Trusted Types enforcement. The progress UI
-  still follows your CSP.
+- Pass `nonce` when your CSP requires one. The swap and custom progress
+  templates use DOM parsing and node adoption rather than `innerHTML`;
+  `createHTML` can provide a Trusted Types policy result for both parsing paths.
+  The progress stylesheet uses the configured nonce. CSP must still permit the
+  library's required style policy.
 
 See [SECURITY.md](./SECURITY.md) for the full security model and reporting
 process.

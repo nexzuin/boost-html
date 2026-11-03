@@ -650,6 +650,7 @@ describe('boost-html', () => {
     await expect(boost.navigate('https://example.com/page')).resolves.toBe(false)
     await expect(boost.navigate('javascript:alert(1)')).resolves.toBe(false)
     await expect(boost.navigate('data:text/html,<h1>x</h1>')).resolves.toBe(false)
+    await expect(boost.navigate('http://user:password@localhost/private')).resolves.toBe(false)
 
     expect(fetchMock).not.toHaveBeenCalled()
     expect(fallback).not.toHaveBeenCalled()

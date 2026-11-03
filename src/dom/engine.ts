@@ -115,22 +115,15 @@ const URL_ATTRIBUTES = new Set([
   'formaction',
   'poster',
   'data',
+  'background',
 ])
-const ACTIVE_CONTENT_SELECTOR =
-  'script,template,[srcdoc],[href],[src],[xlink\\:href],[action],[formaction],[poster],[data]'
 const ACTIVE_BODY_MARKUP =
-  /<script\b|<template\b|\ssrcdoc\b|\son[a-z][\w-]*(?=\s|=|>)|\b(?:href|src|xlink:href|action|formaction|poster|data)\s*=\s*(?:"[^"]*(?:javascript|vbscript|&#|&[a-z][a-z0-9]+;|\s)[^"]*"|'[^']*(?:javascript|vbscript|&#|&[a-z][a-z0-9]+;|\s)[^']*'|[^\s>]*(?:javascript|vbscript|&#|&[a-z][a-z0-9]+;|\s)[^\s>]*)/i
-const EVENT_ATTRIBUTE_PATTERN = /\s(on[a-z][a-z0-9-]*)(?=\s|=|>)/gi
+  /<(?:script|template|iframe|frame|object|embed|portal|style)\b|\ssrcdoc\b|\son[a-z][\w-]*(?=\s|=|>)|\b(?:href|src|srcset|xlink:href|action|formaction|poster|data|background|ping|style)\s*=/i
 
 function getActiveBodyMarkup(sourceHTML: string): string | null {
-  // Ignore scripts in <head>; only the target subtree is inserted. Deliberately
-  // scan to EOF rather than looking for </body>, which may occur in comments or
-  // script strings. Entity-bearing URL attributes are conservatively inspected.
-  const bodyStart = /<body\b[^>]*>/i.exec(sourceHTML)
-  const bodyMarkup = bodyStart
-    ? sourceHTML.slice(bodyStart.index + bodyStart[0].length)
-    : sourceHTML
-  return ACTIVE_BODY_MARKUP.test(bodyMarkup) ? bodyMarkup : null
+  // Inspect the full document: a custom target may intentionally select <head>.
+  // A source-level fast path avoids traversing ordinary response documents.
+  return ACTIVE_BODY_MARKUP.test(sourceHTML) ? sourceHTML : null
 }
 
 /**
@@ -138,57 +131,90 @@ function getActiveBodyMarkup(sourceHTML: string): string | null {
  * source pre-check avoids traversing large, ordinary documents with no scripts
  * or executable attributes. Template contents are visited recursively.
  */
-function extractScriptsAndFilter(
-  incoming: Element,
+function isSafeUrlAttribute(
+  element: Element,
+  name: string,
+  value: string,
   baseUrl: string,
-  bodyMarkup: string,
-): HTMLScriptElement[] {
-  const scripts: HTMLScriptElement[] = []
-  const eventSelectors = new Set<string>()
-  for (const match of bodyMarkup.matchAll(EVENT_ATTRIBUTE_PATTERN)) {
-    if (match[1]) eventSelectors.add(`[${match[1].toLowerCase()}]`)
+): boolean {
+  let url: URL
+  try {
+    url = new URL(value.trim(), baseUrl)
+  } catch {
+    return false
   }
-  const selector = eventSelectors.size
-    ? `${ACTIVE_CONTENT_SELECTOR},${Array.from(eventSelectors).join(',')}`
-    : ACTIVE_CONTENT_SELECTOR
 
+  const protocol = url.protocol.toLowerCase()
+  if (protocol === 'http:' || protocol === 'https:') return true
+  if (name === 'href' || name === 'xlink:href') {
+    return protocol === 'mailto:' || protocol === 'tel:'
+  }
+  // Permit only raster image data URLs. SVG data URLs can contain active markup.
+  if (name === 'src' && element.localName === 'img') {
+    return /^data:image\/(?:png|gif|jpeg|webp|avif);base64,/i.test(value.trim())
+  }
+  return false
+}
+
+/**
+ * Remove executable markup and unsafe navigation/resource attributes from an
+ * untrusted response subtree. This is a defensive filter, not a general-purpose
+ * HTML sanitizer: applications must still serve trusted same-origin HTML.
+ */
+export function sanitizeUntrustedSubtree(incoming: Element, baseUrl: string): HTMLScriptElement[] {
+  const scripts: HTMLScriptElement[] = []
   const visit = (root: ParentNode): void => {
-    for (const element of root.querySelectorAll(selector)) {
+    const elements = [
+      ...(root instanceof Element ? [root] : []),
+      ...Array.from(root.querySelectorAll('*')),
+    ]
+    for (const element of elements) {
       if (element.localName === 'script') {
         scripts.push(element as HTMLScriptElement)
+        element.remove()
         continue
       }
-
+      if (['iframe', 'frame', 'object', 'embed', 'portal', 'style'].includes(element.localName)) {
+        element.remove()
+        continue
+      }
+      if (element.localName === 'template') {
+        visit((element as HTMLTemplateElement).content)
+      }
       for (let index = element.attributes.length - 1; index >= 0; index--) {
         const attribute = element.attributes.item(index)
         if (!attribute) continue
         const name = attribute.name.toLowerCase()
-        if (name.startsWith('on') || name === 'srcdoc') {
+        if (
+          name.startsWith('on') ||
+          name === 'is' ||
+          name === 'srcdoc' ||
+          name === 'srcset' ||
+          name === 'ping' ||
+          name === 'style'
+        ) {
           element.removeAttribute(attribute.name)
           continue
         }
-        if (!URL_ATTRIBUTES.has(name)) continue
-
-        const first = attribute.value.trimStart()[0]?.toLowerCase()
-        if (first !== 'j' && first !== 'v') continue
-        try {
-          const protocol = new URL(attribute.value, baseUrl).protocol.toLowerCase()
-          if (protocol === 'javascript:' || protocol === 'vbscript:') {
-            element.removeAttribute(attribute.name)
-          }
-        } catch {
+        if (
+          URL_ATTRIBUTES.has(name) &&
+          !isSafeUrlAttribute(element, name, attribute.value, baseUrl)
+        ) {
           element.removeAttribute(attribute.name)
         }
-      }
-
-      if (element.localName === 'template') {
-        visit((element as HTMLTemplateElement).content)
       }
     }
   }
   visit(incoming)
-  for (const script of scripts) script.remove()
   return scripts
+}
+
+function extractScriptsAndFilter(
+  incoming: Element,
+  baseUrl: string,
+  _bodyMarkup: string,
+): HTMLScriptElement[] {
+  return sanitizeUntrustedSubtree(incoming, baseUrl)
 }
 
 /**
@@ -207,6 +233,13 @@ export function updateDOM(
   options: DOMEngineOptions,
   sourceHTML: string,
 ): readonly HTMLScriptElement[] {
+  const unsafeTargets = new Set(['script', 'style', 'iframe', 'frame', 'object', 'embed', 'portal'])
+  if (
+    unsafeTargets.has(context.target.localName) ||
+    unsafeTargets.has(context.incoming.localName)
+  ) {
+    throw new Error('The configured DOM target cannot be an active-content element')
+  }
   const bodyMarkup = getActiveBodyMarkup(sourceHTML)
   const scripts = bodyMarkup
     ? extractScriptsAndFilter(context.incoming, context.url, bodyMarkup)

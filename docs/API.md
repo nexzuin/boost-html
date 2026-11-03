@@ -93,11 +93,12 @@ links, stylesheets or scripts. It does not merge arbitrary head markup.
 
 ## Script handling and Trusted Types
 
-Scripts in response descendants are removed before insertion. Inline event
-handler attributes, srcdoc, and javascript: / vbscript: URL attributes are
-also removed as defense in depth. The engine first checks the response source
-for active-markup indicators and skips the DOM filtering traversal for
-ordinary documents; this is not a general-purpose HTML sanitizer.
+Scripts in the selected response subtree are removed before insertion.
+Embedded browsing contexts, response style elements, inline event handlers,
+`is`, `srcdoc`, inline CSS, `srcset`, ping attributes and unsafe URL schemes are
+also filtered as defense in depth. Raster image data URLs are retained only on
+`img` elements. A source-level active-markup check skips the filtering traversal
+for ordinary documents. This is not a general-purpose HTML sanitizer.
 
 executeScripts is deprecated and ignored. To opt into application-specific
 processing, provide scriptHandler. It receives detached script elements and
@@ -108,11 +109,11 @@ wait for that work, and asynchronous failures are reported without rolling
 back the already-committed DOM. The engine itself never executes inline or
 external response scripts.
 
-For a page enforcing Trusted Types, createHTML can call the host application's
-Trusted Types policy and return its TrustedHTML result to DOMParser.
-boost-html does not create a policy and does not claim to sanitize content.
-Under a strict Trusted Types CSP, returning a plain string may still be
-rejected by the browser.
+For a page enforcing Trusted Types, `createHTML` can call the host application's
+Trusted Types policy and return its TrustedHTML result to both response and
+custom progress-template DOM parsing. boost-html does not create a policy and
+does not claim to sanitize content. Under a strict Trusted Types CSP, returning
+a plain string may still be rejected by the browser.
 
 ## History, scroll and accessibility
 

@@ -79,7 +79,11 @@ class NavigationController implements Boost {
 
   constructor(options: BoostOptions) {
     this.options = resolveOptions(options)
-    this.progress = createProgress(this.options.progress, this.options.nonce)
+    this.progress = createProgress(
+      this.options.progress,
+      this.options.nonce,
+      this.options.createHTML,
+    )
   }
 
   start(): this {
@@ -229,10 +233,10 @@ class NavigationController implements Boost {
 
     if (method !== 'GET' && method !== 'HEAD') this.clearCache()
 
-    this.progress.start()
     let timeoutId: ReturnType<typeof setTimeout> | undefined
 
     try {
+      this.progress.start()
       // Resolve once before the request; never repeatedly query a configurable selector.
       const target = this.options.target(document)
       if (!target?.isConnected)
@@ -375,10 +379,12 @@ class NavigationController implements Boost {
         if (scriptWork && typeof scriptWork.then === 'function') {
           void scriptWork.catch((error) => {
             console.error('boost-html: explicit script handler failed', error)
+            this.dispatch('boost:error', { ...detail, error }, false)
           })
         }
       } catch (error) {
         console.error('boost-html: explicit script handler failed', error)
+        this.dispatch('boost:error', { ...detail, error }, false)
       }
 
       this.dispatch('boost:after-swap', swapDetail, false)
@@ -433,7 +439,7 @@ class NavigationController implements Boost {
 
   private isAllowedUrl(url: URL): boolean {
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return false
-    return url.origin === window.location.origin
+    return url.origin === window.location.origin && url.username === '' && url.password === ''
   }
 
   /**
@@ -451,6 +457,9 @@ class NavigationController implements Boost {
 
     if (finalUrl.protocol !== 'http:' && finalUrl.protocol !== 'https:') {
       throw new Error(`Refusing to swap a response from "${finalUrl.protocol}"`)
+    }
+    if (finalUrl.username !== '' || finalUrl.password !== '') {
+      throw new Error('Refusing to swap a response URL containing embedded credentials')
     }
     if (finalUrl.origin !== window.location.origin) {
       throw new Error(`Refusing to swap a cross-origin response from "${finalUrl.origin}"`)
@@ -623,8 +632,8 @@ class NavigationController implements Boost {
     if (init.form && this.options.fallbackToNativeForm) {
       try {
         HTMLFormElement.prototype.submit.call(init.form)
-      } catch {
-        /* the caller can observe boost:error */
+      } catch (error) {
+        this.dispatch('boost:error', { ...this.toDetail(new URL(url), method, init), error }, false)
       }
     }
   }

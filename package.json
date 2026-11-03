@@ -48,7 +48,8 @@
     "LICENSE",
     "SECURITY.md",
     "CHANGELOG.md",
-    "docs/API.md"
+    "docs/API.md",
+    "docs/SECURITY.md"
   ],
   "sideEffects": [
     "./dist/index.js",
@@ -126,13 +127,13 @@
     {
       "name": "Core IIFE bundle",
       "path": "dist/core.global.js",
-      "limit": "12.4 kB",
+      "limit": "12.5 kB",
       "gzip": true
     },
     {
       "name": "Browser IIFE bundle",
       "path": "dist/index.global.js",
-      "limit": "12.5 kB",
+      "limit": "12.6 kB",
       "gzip": true
     }
   ]

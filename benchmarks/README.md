@@ -78,12 +78,12 @@ p95 support it.
 ## Bundle budget
 
 The initial goal is core ESM <= 5 KiB minified + gzip. The current ESM
-shared runtime chunk is approximately 8.48 KiB gzip, so this goal is **not met**.
+shared runtime chunk is approximately 8.59 KiB gzip, so this goal is **not met**.
 The optional prefetch engine is a separate approximately 3.52 KiB gzip ESM
 chunk. The navigation cache is another approximately 2.02 KiB gzip ESM chunk;
 both are loaded dynamically only when their features are enabled. The browser
 IIFE cannot split optional code and includes it in the single bundle
-(approximately 12.43 KiB gzip). `npm run size` enforces interim ceilings for
+(approximately 12.47 KiB gzip for the core IIFE and 12.52 KiB gzip for the browser IIFE). `npm run size` enforces interim ceilings for
 the shared ESM chunk, optional feature chunks, and IIFE bundles; these ceilings
 do not redefine or claim success against the 5 KiB goal.
 

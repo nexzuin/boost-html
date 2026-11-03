@@ -1,3 +1,4 @@
+import { sanitizeUntrustedSubtree } from '../dom/engine'
 import type { ProgressOptions } from '../types'
 
 export interface Progress {
@@ -25,7 +26,11 @@ function injectStyles(nonce: string): void {
 
 const noopProgress: Progress = { start() {}, done() {} }
 
-export function createProgress(options: false | ProgressOptions, nonce = ''): Progress {
+export function createProgress(
+  options: false | ProgressOptions,
+  nonce = '',
+  createHTML?: (html: string) => string | object,
+): Progress {
   if (options === false) return noopProgress
   let container: HTMLElement | null = null
   let bar: HTMLElement | null = null
@@ -46,11 +51,12 @@ export function createProgress(options: false | ProgressOptions, nonce = ''): Pr
 
   const createIndicator = (): void => {
     if (options.template) {
-      const template = document.createElement('template')
-      template.innerHTML = options.template
+      const trustedTemplate = createHTML ? createHTML(options.template) : options.template
+      const parsed = new DOMParser().parseFromString(trustedTemplate as string, 'text/html')
+      sanitizeUntrustedSubtree(parsed.body, document.baseURI)
       const root =
-        template.content.querySelector<HTMLElement>('#nprogress') ??
-        (template.content.firstElementChild as HTMLElement | null)
+        parsed.querySelector<HTMLElement>('#nprogress') ??
+        (parsed.body.firstElementChild as HTMLElement | null)
       if (root) container = root
     }
 
