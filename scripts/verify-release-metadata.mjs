@@ -15,6 +15,25 @@ if (pkg.license !== 'MIT' || !existsSync(resolve(root, 'LICENSE')))
 if (!pkg.files?.includes('docs/MIGRATION.md'))
   errors.push('docs/MIGRATION.md must be included in the package files whitelist')
 
+const publishWorkflowPath = resolve(root, '.github/workflows/publish.yml')
+if (!existsSync(publishWorkflowPath)) {
+  errors.push('.github/workflows/publish.yml is missing')
+} else {
+  const workflow = readFileSync(publishWorkflowPath, 'utf8')
+  if (!workflow.includes('id-token: write'))
+    errors.push('publish workflow must grant id-token: write')
+  if (!workflow.includes('environment: npm-production'))
+    errors.push('publish workflow must use the npm-production environment')
+  if (!workflow.includes("github.event.release.tag_name == 'v1.0.0'"))
+    errors.push('publish workflow must be gated to the v1.0.0 release tag')
+  if (!workflow.includes("pkg.version !== '1.0.0'"))
+    errors.push('publish workflow must verify package version 1.0.0')
+  if (!workflow.includes('npm publish --provenance --access public'))
+    errors.push('publish workflow must publish with npm provenance')
+  if (!workflow.includes('types: [published]'))
+    errors.push('publish workflow must only trigger on published GitHub Releases')
+}
+
 if (repositoryUrl) {
   const normalized = repositoryUrl
     .replace(/^git\+/, '')

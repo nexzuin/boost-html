@@ -8,18 +8,21 @@ resolved and the maintainer explicitly approves the release.
 
 ## 1. Repository and package identity
 
-- [ ] Supply the canonical public GitHub repository URL.
-- [ ] Add matching `repository`, `homepage`, and `bugs` metadata to
-      `package.json`.
-- [ ] Verify the repository is public and the npm trusted-publisher
-      configuration uses the exact case-sensitive repository owner/name and
-      workflow filename (npm asks for the filename, not the full path).
-- [ ] In npm Trusted Publisher settings, explicitly allow `npm publish` (or
-      choose staged publishing only if that approval flow is intentionally
-      adopted).
+- [x] Canonical public repository URL confirmed: `https://github.com/nexzuin/boost-html`.
+- [x] Matching `repository`, `homepage`, and `bugs` metadata added to `package.json`.
+- [x] Prepare `.github/workflows/publish.yml`; it only runs for a published
+      GitHub Release tagged `v1.0.0`, checks the package version, and requires
+      the `npm-production` GitHub environment.
+- [ ] Configure the `npm-production` GitHub environment with required reviewers
+      before creating any release.
+- [ ] After the package exists on npm, configure its Trusted Publisher as:
+      GitHub Actions / user `nexzuin` / repository `boost-html` / workflow
+      filename `publish.yml` / environment `npm-production`.
+- [ ] Allow `npm publish` for that Trusted Publisher. npm requires the workflow
+      filename only, not `.github/workflows/`.
 - [ ] Confirm the `boost-html` package name is publishable under the intended
-      npm account; an npm registry 404 is not a guarantee that a name is
-      reserved-free.
+      npm account; the current public registry lookup returns E404, but that is
+      not a guarantee that the name is reserved-free.
 - [ ] Confirm package description, keywords, MIT license, `LICENSE`, README,
       changelog, migration guide, and security policy.
 - [ ] Confirm maintainership and npm account ownership / 2FA requirements.
@@ -27,12 +30,15 @@ resolved and the maintainer explicitly approves the release.
 ## 2. Release source and CI
 
 - [ ] Push the approved source commit to the canonical repository.
-- [ ] Confirm the GitHub Actions Node 20/22/24 quality matrix passes.
+- [ ] Confirm the GitHub Actions Node 22.19.0 / 24.11.0 quality matrix passes.
 - [ ] Confirm Chromium, Firefox, and WebKit browser jobs pass on GitHub-hosted
       runners.
 - [ ] Review all test artifacts and any retries; do not accept a flaky-only
       green result without investigation.
-- [ ] Confirm branch protection requires the quality and browser checks.
+- [ ] Enable a `main` branch ruleset requiring pull requests and these status
+      checks: Quality (Node 22.19.0), Quality (Node 24.11.0), Browser
+      integration (chromium), Browser integration (firefox), and Browser
+      integration (webkit). The branch was unprotected at the last API check.
 - [ ] Review `docs/SECURITY.md` and resolve any application-level deployment
       concerns.
 
@@ -42,9 +48,9 @@ Run from a clean checkout at the exact release commit:
 
 ```bash
 npm ci
+npm audit
 npm run check
 npm run test:integration
-npm audit
 npm pack --dry-run --json
 ```
 
@@ -59,19 +65,29 @@ npm pack --dry-run --json
 
 ## 4. npm provenance / trusted publishing
 
-Preferred method: configure npm Trusted Publishing for the canonical public
-GitHub repository and the exact release workflow. The workflow must run on a
-GitHub-hosted runner, use npm CLI 11.5.1 or later with Node 22.14.0 or later,
-and grant `id-token: write`. npm automatically generates provenance
-attestations for supported GitHub Actions trusted-publishing flows; no
-long-lived npm publish token is required for the publish step.
+The prepared `.github/workflows/publish.yml` uses a GitHub-hosted runner, Node
+24.11.0, npm CLI 11.15.0, `id-token: write`, and
+`npm publish --provenance --access public`. It is guarded by both the exact
+`v1.0.0` release tag and package version `1.0.0`, and it waits at the
+`npm-production` GitHub environment. It has not been triggered.
 
-If trusted publishing cannot be used, publish from a supported cloud CI/CD
-runner with provenance enabled (`npm publish --provenance`). For the first
-public publication, npm's provenance guidance recommends explicitly passing
-`--access public`; use `npm publish --provenance --access public`. The package
-declares `publishConfig.provenance: true` as preparation, but the repository
-URL and trusted publisher must still be configured and verified.
+**First-publication bootstrap:** the registry currently returns E404 for
+`boost-html`, so no npm package settings page or existing Trusted Publisher can
+be verified. The npm `npm trust` CLI also requires the package to exist first.
+For the first package creation only, a maintainer may add a narrowly scoped
+npm Granular Access Token as the GitHub repository secret `NPM_TOKEN`; the
+workflow passes it only to the publish step and still requests provenance from
+the public GitHub-hosted build. The npm `npm trust` CLI requires the package to
+exist first, so the first publication cannot be configured through that CLI.
+After the first successful publication, create the Trusted Publisher using the
+exact values above, verify it with a subsequent approved release, and remove
+`NPM_TOKEN`. Do not create or add this secret until the first release is
+explicitly approved.
+
+npm Trusted Publishing requires npm CLI 11.5.1 or later, Node 22.14.0 or later,
+a public matching repository, a GitHub-hosted runner, and `id-token: write`.
+When the Trusted Publisher is active, npm automatically generates provenance
+and OIDC authentication is preferred over long-lived tokens.
 
 References:
 
@@ -96,10 +112,10 @@ References:
 
 ## Current blockers
 
-- `package.json.repository`, `homepage`, and `bugs` metadata are not configured
-  because this checkout has no Git remote and the canonical URL is unknown.
-- The GitHub Actions workflow has not yet run on the canonical remote repository.
-- npm Trusted Publishing has not been configured in npm account settings.
+- The corrected GitHub Actions matrix must pass after the latest commit is pushed.
+- The `npm-production` GitHub environment needs required reviewers.
+- The package does not exist on npm yet (registry E404); first-publication bootstrap and Trusted Publisher configuration remain pending.
+- The `main` branch is not protected by a required-check ruleset.
 - The package version is still `0.1.0` by design.
 
 Do not bypass these blockers or publish from a local workstation.

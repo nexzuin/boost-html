@@ -1,15 +1,21 @@
 {
   "name": "boost-html",
   "version": "0.1.0",
-  "description": "Progressive enhancement for HTML: hx-boost-style link and form navigation with body swaps, history support and a native progress bar.",
+  "description": "Progressive enhancement for HTML applications with same-origin Fetch navigation, forms, browser history, optional prefetch, and in-memory caching.",
   "keywords": [
+    "html",
+    "progressive-enhancement",
+    "multi-page-app",
+    "navigation",
+    "fetch",
+    "forms",
     "htmx",
     "hx-boost",
-    "boost",
-    "progressive-enhancement",
     "pjax",
-    "navigation",
-    "dom"
+    "typescript",
+    "browser",
+    "prefetch",
+    "navigation-cache"
   ],
   "license": "MIT",
   "type": "module",
@@ -71,7 +77,7 @@
     "bench:prefetch": "npm run build && node benchmarks/prefetch.mjs",
     "bench:cache": "npm run build && node benchmarks/cache.mjs",
     "size": "size-limit",
-    "check": "npm run lint && npm run typecheck && npm run test:unit && npm run build && npm run size && npm run verify:package",
+    "check": "npm run lint && npm run typecheck && npm run test:unit && npm run build && npm run size && npm run verify:package && npm run verify:release-metadata",
     "demo": "npm run build && node demo/server.mjs",
     "demo:server": "node demo/server.mjs",
     "prepublishOnly": "npm run check",
@@ -93,9 +99,6 @@
     "tsup": "^9.0.0",
     "typescript": "^6.0.3",
     "vitest": "^5.0.5"
-  },
-  "engines": {
-    "node": ">=18"
   },
   "browserslist": [
     "last 2 Chrome versions",
@@ -144,5 +147,13 @@
   ],
   "publishConfig": {
     "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nexzuin/boost-html.git"
+  },
+  "homepage": "https://github.com/nexzuin/boost-html#readme",
+  "bugs": {
+    "url": "https://github.com/nexzuin/boost-html/issues"
   }
 }

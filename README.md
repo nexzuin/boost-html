@@ -376,6 +376,11 @@ Chromium. WebKit's Linux CI project runs headed under Xvfb.
 The package does not ship polyfills. Applications supporting older browsers
 must provide their own compatible platform APIs or use full-page navigation.
 
+Development and release tooling requires Node.js 22.19.0 or later (or Node.js
+24.11.0 or later). The published runtime is browser-oriented and does not
+require Node.js; therefore the package intentionally does not declare a Node
+`engines` restriction for consumers.
+
 ## Examples and guides
 
 - [Complete API reference](./docs/API.md)

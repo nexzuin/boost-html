@@ -1,6 +1,6 @@
 # Production readiness report — v1.0.0 preparation
 
-**Audit date:** 2026-11-03
+**Audit date:** 2026-11-04
 
 **Current package version:** `0.1.0` (unchanged)
 
@@ -16,12 +16,15 @@ The implementation, documentation, package build, local test matrix, and
 package archive are prepared for the first stable release candidate. The
 working tree is deliberately still version `0.1.0`.
 
-The release cannot be approved yet. This checkout has no Git remote, and the
-canonical public repository URL is unknown. Consequently `repository`,
-`homepage`, and `bugs` metadata are absent, npm Trusted Publishing cannot be
-bound to the intended repository/workflow, and GitHub Actions has not been
-verified on the canonical remote. The metadata verifier fails for those three
-missing fields by design.
+The canonical public repository is now confirmed as
+`https://github.com/nexzuin/boost-html`, and the matching `repository`,
+`homepage`, and `bugs` fields have been added to `package.json`. The initial
+[GitHub Actions run](https://github.com/nexzuin/boost-html/actions/runs/41723917460)
+exposed an invalid Node 20 matrix entry: Vitest 5 and the
+current build toolchain require newer Node versions. The matrix has therefore
+been corrected to Node 22.19.0 and 24.11.0. The corrected remote run must pass
+before release approval. npm Trusted Publishing still requires account-level
+configuration by the maintainer.
 
 ## Local validation results
 
@@ -45,9 +48,12 @@ missing fields by design.
 | Firefox | PASS | 14 passed, 1 skipped (Chromium-only Trusted Types test) |
 | WebKit | PASS | 14 passed, 1 skipped (Chromium-only Trusted Types test) |
 | Combined browser matrix | PASS | 43 passed, 2 skipped, 45 total |
-| Repository metadata | BLOCKED | `repository.url`, `homepage`, and `bugs.url` missing |
-| Remote GitHub Actions | PENDING | Workflow committed but not run on canonical remote |
-| npm Trusted Publisher | PENDING | npm account configuration not available from this checkout |
+| Repository metadata | PASS | Canonical nexzuin/boost-html URLs configured and metadata verifier passes locally |
+| Initial remote GitHub Actions | FAIL (diagnosed) | Node 20 job failed at Vitest; Node 22/24 and all browser jobs passed |
+| Corrected remote GitHub Actions | PENDING | Node matrix changed to 22.19.0 / 24.11.0; waiting for the new run |
+| Publish workflow | PREPARED / NOT TRIGGERED | `publish.yml` gated on published `v1.0.0`, package version check, and `npm-production` environment |
+| npm Trusted Publisher | BLOCKED / PENDING | npm package does not exist yet (registry E404); initial publication/bootstrap required |
+| Branch protection | PENDING | `main` was not protected when checked through GitHub API |
 
 ### Browser coverage
 
@@ -103,8 +109,13 @@ configured here. See the official npm documentation:
 - https://docs.npmjs.com/trusted-publishers/
 - https://docs.npmjs.com/generating-provenance-statements/
 
-No publish workflow was added. The existing CI workflow only runs tests,
-builds, package checks, and manual benchmarks; it cannot publish a package.
+A gated `.github/workflows/publish.yml` has been prepared but not triggered. It
+only reacts to a published GitHub Release tagged exactly `v1.0.0`, verifies the
+package version is also `1.0.0`, waits on the `npm-production` environment, and
+runs the full release validation before the npm publish step. No release, tag,
+secret, or npm publication has been created. The package currently returns
+registry E404, so the first-publication bootstrap and subsequent Trusted
+Publisher configuration still require maintainer action.
 
 ## Remaining blockers
 
@@ -120,17 +131,20 @@ builds, package checks, and manual benchmarks; it cannot publish a package.
 | Medium | Trusted Types test runs only in Chromium. | Validate the host application's actual CSP and policy integration in supported browsers. |
 | Low | `npm view boost-html version` returns registry E404 at audit time. | Confirm package-name availability in the intended npm account immediately before publication; 404 is not a reservation guarantee. |
 
-`npm run verify:release-metadata` currently exits with a blocker report for the
-missing `repository.url`, `homepage`, and `bugs.url`. This is expected and is
-not silently treated as a pass.
+`npm run verify:release-metadata` now validates the confirmed GitHub repository
+metadata. The package intentionally omits `engines.node`: this is a browser
+runtime package, while the development toolchain is tested on Node 22.19.0 and
+24.11.0. This avoids imposing an irrelevant Node runtime restriction on browser
+consumers.
 
 ## Final release restrictions
 
 - `package.json.version` remains `0.1.0`.
 - No `npm publish` command was executed.
 - No GitHub Release or Git tag was created.
-- No active automatic publishing workflow was added.
+- A guarded publish workflow was added but has not been triggered; it requires a published `v1.0.0` GitHub Release and a protected `npm-production` environment.
 - Draft v1.0.0 release notes and checklist do not constitute release approval.
 
-The stable release remains blocked until repository metadata, npm Trusted
-Publishing, remote CI, and the explicit maintainer approval are complete.
+The stable release remains blocked until corrected remote CI passes, npm Trusted
+Publishing is configured, remaining quality goals are accepted, and explicit
+maintainer approval is given.
