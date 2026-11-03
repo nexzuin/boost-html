@@ -22,8 +22,11 @@ The canonical public repository is now confirmed as
 [GitHub Actions run](https://github.com/nexzuin/boost-html/actions/runs/41723917460)
 exposed an invalid Node 20 matrix entry: Vitest 5 and the
 current build toolchain require newer Node versions. The matrix has therefore
-been corrected to Node 22.19.0 and 24.11.0. The corrected remote run must pass
-before release approval. npm Trusted Publishing still requires account-level
+been corrected to Node 22.19.0 and 24.11.0. The corrected [GitHub Actions run](https://github.com/nexzuin/boost-html/actions/runs/41724994801)
+completed successfully on Node 22.19.0 / 24.11.0 and all three browsers. It
+reported deprecation warnings because checkout/setup-node v4 still targeted
+Node 20; action references have now been upgraded to v7 and need one final
+remote verification. npm Trusted Publishing still requires account-level
 configuration by the maintainer.
 
 ## Local validation results
@@ -50,7 +53,7 @@ configuration by the maintainer.
 | Combined browser matrix | PASS | 43 passed, 2 skipped, 45 total |
 | Repository metadata | PASS | Canonical nexzuin/boost-html URLs configured and metadata verifier passes locally |
 | Initial remote GitHub Actions | FAIL (diagnosed) | Node 20 job failed at Vitest; Node 22/24 and all browser jobs passed |
-| Corrected remote GitHub Actions | PENDING | Node matrix changed to 22.19.0 / 24.11.0; waiting for the new run |
+| Corrected remote GitHub Actions | PASS (run 41724994801) | Node 22.19.0 / 24.11.0 and Chromium/Firefox/WebKit passed; v7 action upgrade pushed separately and awaiting verification |
 | Publish workflow | PREPARED / NOT TRIGGERED | `publish.yml` gated on published `v1.0.0`, package version check, and `npm-production` environment |
 | npm Trusted Publisher | BLOCKED / PENDING | npm package does not exist yet (registry E404); initial publication/bootstrap required |
 | Branch protection | PENDING | `main` was not protected when checked through GitHub API |

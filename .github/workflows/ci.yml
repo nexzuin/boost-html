@@ -23,8 +23,8 @@ jobs:
       matrix:
         node: ["22.19.0", "24.11.0"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -42,8 +42,8 @@ jobs:
       matrix:
         browser: [chromium, firefox, webkit]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22.19.0
           cache: npm
@@ -54,7 +54,7 @@ jobs:
         run: xvfb-run -a npm run test:browser -- --project=webkit
       - if: matrix.browser != 'webkit'
         run: npm run test:browser -- --project=${{ matrix.browser }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-${{ matrix.browser }}-failure
@@ -69,8 +69,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22.19.0
           cache: npm
