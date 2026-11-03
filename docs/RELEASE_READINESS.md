@@ -43,7 +43,7 @@ configuration by the maintainer.
 | TypeScript declarations | PASS | `.d.ts` and `.d.cts` for root and core entries |
 | Bundle size gates | PASS | ESM 8.61 kB ceiling; core IIFE 12.5 kB; browser IIFE 12.6 kB |
 | Package exports | PASS | ESM/CJS imports resolve; root/core expose `createBoost()` |
-| Package contents | PASS | `npm pack --dry-run --json`: 40 files, 191,663 bytes |
+| Package contents | PASS | `npm pack --dry-run --json`: 40 files, 191,926 bytes (713,762 unpacked) |
 | Provenance config | PASS | `publishConfig.provenance: true` |
 | MIT license | PASS | `license: MIT` and `LICENSE` file |
 | Full npm dependency audit | PASS | `npm audit`: 0 vulnerabilities |
@@ -53,7 +53,8 @@ configuration by the maintainer.
 | Combined browser matrix | PASS | 43 passed, 2 skipped, 45 total |
 | Repository metadata | PASS | Canonical nexzuin/boost-html URLs configured and metadata verifier passes locally |
 | Initial remote GitHub Actions | FAIL (diagnosed) | Node 20 job failed at Vitest; Node 22/24 and all browser jobs passed |
-| Corrected remote GitHub Actions | PASS (run 41724994801) | Node 22.19.0 / 24.11.0 and Chromium/Firefox/WebKit passed; v7 action upgrade pushed separately and awaiting verification |
+| Corrected remote GitHub Actions | PASS (run 41724994801) | Node 22.19.0 / 24.11.0 and Chromium/Firefox/WebKit passed; initial v4 actions emitted Node 20 deprecation warnings |
+| Final remote GitHub Actions | PASS (run 41725514304) | Same Node/browser matrix passed using checkout/setup-node/upload-artifact v7; no Node 20 deprecation warnings |
 | Publish workflow | PREPARED / NOT TRIGGERED | `publish.yml` gated on published `v1.0.0`, package version check, and `npm-production` environment |
 | npm Trusted Publisher | BLOCKED / PENDING | npm package does not exist yet (registry E404); initial publication/bootstrap required |
 | Branch protection | PENDING | `main` was not protected when checked through GitHub API |
@@ -100,7 +101,9 @@ excludes tests, benchmarks, CI files, and release-preparation scripts.
 `scripts/verify-package.mjs` checks ESM/CJS export targets, imports the built
 ESM/CJS entry points, checks IIFE bundles and declaration files, validates
 provenance configuration, and inspects the `npm pack --dry-run --json` file
-list. The archive currently contains 40 files and is 191,663 bytes.
+list. The archive currently contains 40 files, 191,926 bytes compressed, and
+713,762 bytes unpacked. Its SHA-512 integrity is
+`sha512-GqiUDjRQY62x8pZcyFWmmXw/G/AdtLGvc6uDV2LoqBBTbYyE5LAv0pjmM50LJ6wjDaApIAVHXS6sU7xLzsCX/g==`.
 
 `publishConfig.provenance` is enabled. npm documentation states that GitHub
 Actions Trusted Publishing uses OIDC, requires a public repository whose URL

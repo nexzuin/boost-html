@@ -29,10 +29,11 @@ resolved and the maintainer explicitly approves the release.
 
 ## 2. Release source and CI
 
-- [ ] Push the approved source commit to the canonical repository.
-- [ ] Confirm the GitHub Actions Node 22.19.0 / 24.11.0 quality matrix passes.
-- [ ] Confirm Chromium, Firefox, and WebKit browser jobs pass on GitHub-hosted
-      runners.
+- [x] Repository is synchronized with `https://github.com/nexzuin/boost-html`; latest CI commit is pushed. Re-check the final release commit before publication.
+- [x] GitHub Actions run [41725514304](https://github.com/nexzuin/boost-html/actions/runs/41725514304)
+      passed on Node 22.19.0 / 24.11.0 and Chromium, Firefox, and WebKit using
+      Node 24-based GitHub Actions v7. Re-run this gate against the final release
+      commit before publication.
 - [ ] Review all test artifacts and any retries; do not accept a flaky-only
       green result without investigation.
 - [ ] Enable a `main` branch ruleset requiring pull requests and these status
