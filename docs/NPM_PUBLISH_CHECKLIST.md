@@ -30,7 +30,7 @@ resolved and the maintainer explicitly approves the release.
 ## 2. Release source and CI
 
 - [x] Repository is synchronized with `https://github.com/nexzuin/boost-html`; latest CI commit is pushed. Re-check the final release commit before publication.
-- [x] GitHub Actions run [41725514304](https://github.com/nexzuin/boost-html/actions/runs/41725514304)
+- [x] Latest GitHub Actions run [41725977643](https://github.com/nexzuin/boost-html/actions/runs/41725977643)
       passed on Node 22.19.0 / 24.11.0 and Chromium, Firefox, and WebKit using
       Node 24-based GitHub Actions v7. Re-run this gate against the final release
       commit before publication.

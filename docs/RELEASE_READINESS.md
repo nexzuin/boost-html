@@ -54,7 +54,7 @@ configuration by the maintainer.
 | Repository metadata | PASS | Canonical nexzuin/boost-html URLs configured and metadata verifier passes locally |
 | Initial remote GitHub Actions | FAIL (diagnosed) | Node 20 job failed at Vitest; Node 22/24 and all browser jobs passed |
 | Corrected remote GitHub Actions | PASS (run 41724994801) | Node 22.19.0 / 24.11.0 and Chromium/Firefox/WebKit passed; initial v4 actions emitted Node 20 deprecation warnings |
-| Final remote GitHub Actions | PASS (run 41725514304) | Same Node/browser matrix passed using checkout/setup-node/upload-artifact v7; no Node 20 deprecation warnings |
+| Final remote GitHub Actions | PASS (run 41725977643) | Latest commit passed both Node quality jobs and Chromium/Firefox/WebKit using checkout/setup-node/upload-artifact v7; no Node 20 deprecation warnings |
 | Publish workflow | PREPARED / NOT TRIGGERED | `publish.yml` gated on published `v1.0.0`, package version check, and `npm-production` environment |
 | npm Trusted Publisher | BLOCKED / PENDING | npm package does not exist yet (registry E404); initial publication/bootstrap required |
 | Branch protection | PENDING | `main` was not protected when checked through GitHub API |
