@@ -29,6 +29,18 @@ speculative requests. Override the workload with `PREFETCH_ITERATIONS` and
 `benchmarks/results/prefetch.json`. This synthetic test isolates the perceived
 latency trade-off; it does not predict gains on a particular mobile network.
 
+### Navigation-cache benchmark
+
+Run `npm run bench:cache` to compare cold navigation with an LRU hit for the
+same URL. The harness injects 50 ms response latency, measures median/p95
+click-to-swap time, verifies server request/byte counts, fills the configured
+20-entry cache, then measures V8 heap before fill, after fill, and after
+`clearCache()`. Override iterations, entry count and latency with
+`CACHE_BENCH_ITERATIONS`, `CACHE_MEMORY_ENTRIES`, and
+`CACHE_BENCH_LATENCY_MS`. Results are saved to
+`benchmarks/results/cache.json`. CDP heap measurements do not include native
+Response body storage or total browser process RSS; see the report limitations.
+
 ## Fixture sizes
 
 | Fixture | Generated sections | Parsed elements |
@@ -66,19 +78,22 @@ p95 support it.
 ## Bundle budget
 
 The initial goal is core ESM <= 5 KiB minified + gzip. The current ESM
-shared runtime chunk is approximately 8.14 KiB gzip, so this goal is **not met**.
-The optional prefetch engine is a separate approximately 3.11 KiB gzip ESM chunk
-and is loaded dynamically only when prefetch is enabled or the manual API is
-called. The browser IIFE cannot split that optional code and includes it in the
-single bundle (approximately 10.46 KiB gzip). `npm run size` enforces interim
-ceilings for the shared ESM chunk, optional ESM chunk, and IIFE bundles; these
-ceilings do not redefine or claim success against the 5 KiB goal.
+shared runtime chunk is approximately 8.48 KiB gzip, so this goal is **not met**.
+The optional prefetch engine is a separate approximately 3.52 KiB gzip ESM
+chunk. The navigation cache is another approximately 2.02 KiB gzip ESM chunk;
+both are loaded dynamically only when their features are enabled. The browser
+IIFE cannot split optional code and includes it in the single bundle
+(approximately 12.43 KiB gzip). `npm run size` enforces interim ceilings for
+the shared ESM chunk, optional feature chunks, and IIFE bundles; these ceilings
+do not redefine or claim success against the 5 KiB goal.
 
 ## Results
 
 See [comparison.md](results/comparison.md) for the navigation pipeline before/after
 analysis and [prefetch-comparison.md](results/prefetch-comparison.md) for the
-prefetch latency/network trade-off. JSON reports retain raw measurements:
+prefetch latency/network trade-off and [cache latency/memory results](results/cache-comparison.md).
+JSON reports retain raw measurements:
 - `results/production-baseline.json`
 - `results/production-after.json`
 - `results/prefetch.json`
+- `results/cache.json`

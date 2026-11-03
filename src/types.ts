@@ -53,6 +53,25 @@ export interface ResolvedPrefetchOptions {
   exclude: string[]
 }
 
+/** Configuration for the optional in-memory navigation cache. */
+export interface NavigationCacheOptions {
+  /** Enable per-instance in-memory caching. @default false */
+  enabled?: boolean
+  /** Maximum number of cached URL/header variants. @default 20 */
+  maxEntries?: number
+  /** Maximum local freshness lifetime in milliseconds. @default 30000 */
+  maxAge?: number
+  /** Path prefixes that must never be cached. */
+  exclude?: string[]
+}
+
+export interface ResolvedNavigationCacheOptions {
+  enabled: boolean
+  maxEntries: number
+  maxAge: number
+  exclude: string[]
+}
+
 export interface BoostOptions {
   /**
    * CSS selector that marks boosted subtrees.
@@ -119,6 +138,8 @@ export interface BoostOptions {
   progress?: boolean | ProgressOptions
   /** Optional, conservative prefetch engine. Disabled by default. */
   prefetch?: PrefetchOptions
+  /** Optional per-instance in-memory LRU navigation cache. Disabled by default. */
+  cache?: NavigationCacheOptions
   /** Extra headers sent with every boosted request. */
   headers?: BoostHeaders
 }
@@ -146,6 +167,7 @@ export interface ResolvedBoostOptions {
   progress: false | ProgressOptions
   headers: BoostHeaders
   prefetch: ResolvedPrefetchOptions
+  cache: ResolvedNavigationCacheOptions
 }
 
 export interface NavigateOptions {
@@ -205,4 +227,6 @@ export interface Boost {
   navigate(url: string | URL, options?: NavigateOptions): Promise<boolean>
   /** Opportunistically prefetch an eligible same-origin HTML GET URL. */
   prefetch(url: string | URL): Promise<boolean>
+  /** Clear every cached response, or only variants for the supplied URL. */
+  clearCache(url?: string | URL): this
 }

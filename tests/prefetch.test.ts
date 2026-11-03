@@ -5,7 +5,12 @@ import { PrefetchEngine, resolvePrefetchOptions } from '../src/prefetch/engine'
 function htmlResponse(path = '/prefetched'): Response {
   return new Response(
     `<!doctype html><html><head><title>Prefetched</title></head><body><h1>${path}</h1></body></html>`,
-    { headers: { 'content-type': 'text/html; charset=utf-8' } },
+    {
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'public, max-age=30',
+      },
+    },
   )
 }
 
@@ -242,7 +247,11 @@ describe('prefetch engine', () => {
   it('rejects responses that vary on untracked headers', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response('<html><body>private</body></html>', {
-        headers: { 'content-type': 'text/html', vary: 'Cookie' },
+        headers: {
+          'content-type': 'text/html',
+          'cache-control': 'public, max-age=30',
+          vary: 'Cookie',
+        },
       }),
     )
     vi.stubGlobal('fetch', fetchMock)
@@ -264,6 +273,22 @@ describe('prefetch engine', () => {
     )
     await expect(engine.prefetch('/too-large')).resolves.toBe(false)
     await expect(engine.take(new URL('/too-large', location.href))).resolves.toBeNull()
+    engine.stop()
+  })
+
+  it('does not retain a prefetch after the server freshness lifetime expires', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('<html><body>stale</body></html>', {
+        headers: {
+          'content-type': 'text/html',
+          'cache-control': 'public, max-age=0',
+        },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const engine = makeEngine({ enabled: true })
+    await expect(engine.prefetch('/zero-max-age')).resolves.toBe(false)
+    await expect(engine.take(new URL('/zero-max-age', location.href))).resolves.toBeNull()
     engine.stop()
   })
 
@@ -289,6 +314,7 @@ describe('prefetch engine', () => {
         <a id="delete" href="/delete" data-method="DELETE">Delete</a>
         <a id="sensitive" href="/account" data-boost-sensitive>Account</a>
         <a id="excluded-attribute" href="/no-prefetch" data-boost-prefetch="false">Excluded</a>
+        <a id="no-cache" href="/no-cache" data-no-cache>Do not cache</a>
         <div data-no-prefetch><a id="excluded-ancestor" href="/no-prefetch-ancestor">Excluded</a></div>
         <a id="excluded" href="/logout">Logout</a>
       </div>

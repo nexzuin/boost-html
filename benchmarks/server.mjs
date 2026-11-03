@@ -24,6 +24,9 @@ function page(title, content) {
         prefetch: new URLSearchParams(location.search).has('prefetch')
           ? { enabled: true, strategy: 'pointerdown', maxConcurrent: 2 }
           : { enabled: false },
+        cache: new URLSearchParams(location.search).has('cache')
+          ? { enabled: true, maxEntries: 20, maxAge: 30000 }
+          : { enabled: false },
       }
     </script>
     <script defer src="/boost-html.js"></script>
@@ -95,6 +98,7 @@ const server = createServer(async (req, res) => {
     metrics[size].bytes += Buffer.byteLength(body)
     res.writeHead(200, {
       'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'public, max-age=30',
       'content-length': Buffer.byteLength(body),
     })
     res.end(body)

@@ -3,6 +3,7 @@ import {
   focusAfterNavigation,
   removeAnnouncementRegion,
 } from '../accessibility/navigation'
+import type { NavigationCache } from '../cache/navigation-cache'
 import { resolveOptions } from '../core/options'
 import {
   encodeFormBody,
@@ -70,6 +71,7 @@ class NavigationController implements Boost {
   readonly options: ResolvedBoostOptions
   private readonly progress: Progress
   private prefetcher: Promise<PrefetchEngine> | null = null
+  private cache: Promise<NavigationCache> | null = null
   private controller: AbortController | null = null
   private readonly submittingForms = new WeakSet<HTMLFormElement>()
   private started = false
@@ -117,6 +119,7 @@ class NavigationController implements Boost {
     }
 
     if (this.prefetcher) void this.prefetcher.then((engine) => engine.stop())
+    this.clearCache()
     this.controller?.abort()
     this.controller = null
     this.progress.done()
@@ -138,11 +141,28 @@ class NavigationController implements Boost {
     return engine ? (await engine).prefetch(input) : false
   }
 
+  clearCache(input?: string | URL): this {
+    if (this.cache) void this.cache.then((cache) => cache.clear(input))
+    if (this.prefetcher) void this.prefetcher.then((engine) => engine.clear(input))
+    return this
+  }
+
+  private getCache(): Promise<NavigationCache> | null {
+    if (!this.options.cache.enabled) return null
+    if (!this.cache) {
+      this.cache = import('../cache/navigation-cache').then(
+        ({ NavigationCache: Cache }) => new Cache(this.options.cache, window.location.origin),
+      )
+    }
+    return this.cache
+  }
+
   private getPrefetcher(): Promise<PrefetchEngine> | null {
     if (!this.options.prefetch.enabled) return null
     if (!this.prefetcher) {
+      const cache = this.getCache()
       this.prefetcher = import('../prefetch/engine').then(
-        ({ PrefetchEngine: Engine }) =>
+        async ({ PrefetchEngine: Engine }) =>
           new Engine(
             this.options.prefetch,
             async () =>
@@ -152,6 +172,7 @@ class NavigationController implements Boost {
             this.options.scope,
             this.options.linkSelector,
             this.options.maxResponseBytes > 0 ? this.options.maxResponseBytes : 2 * 1024 * 1024,
+            cache ? await cache : undefined,
           ),
       )
     }
@@ -206,6 +227,8 @@ class NavigationController implements Boost {
     }
     if (!this.isCurrent(controller)) return false
 
+    if (method !== 'GET' && method !== 'HEAD') this.clearCache()
+
     this.progress.start()
     let timeoutId: ReturnType<typeof setTimeout> | undefined
 
@@ -226,15 +249,32 @@ class NavigationController implements Boost {
         ? await (await prefetcher).take(url, controller.signal, detail.headers)
         : null
       if (!this.isCurrent(controller)) return false
+      const navigationCache = method === 'GET' && !init.body ? this.getCache() : null
+      const cache = navigationCache ? await navigationCache : null
+      const memoryResponse =
+        !cachedResponse && cache?.isEligible(url, detail.element)
+          ? cache.get(url, detail.headers)
+          : null
       const response =
         cachedResponse ??
-        (await sendRequest({
-          url: url.href,
-          method,
-          body: init.body ?? null,
-          headers: detail.headers,
-          signal: controller.signal,
-        }))
+        memoryResponse ??
+        (cache?.isEligible(url, detail.element)
+          ? await cache.request(url, detail.headers, controller.signal, (signal) =>
+              sendRequest({
+                url: url.href,
+                method,
+                body: null,
+                headers: detail.headers,
+                signal,
+              }),
+            )
+          : await sendRequest({
+              url: url.href,
+              method,
+              body: init.body ?? null,
+              headers: detail.headers,
+              signal: controller.signal,
+            }))
 
       if (controller.signal.aborted) {
         if (controller.signal.reason?.name === 'TimeoutError') throw controller.signal.reason
@@ -242,7 +282,11 @@ class NavigationController implements Boost {
       }
 
       const cachedFinalUrl =
-        cachedResponse && prefetcher ? (await prefetcher).getFinalUrl(cachedResponse) : undefined
+        cachedResponse && prefetcher
+          ? (await prefetcher).getFinalUrl(cachedResponse)
+          : memoryResponse && cache
+            ? cache.getFinalUrl(url, detail.headers)
+            : undefined
       const finalUrlObject = this.resolveFinalUrl(response, url, cachedFinalUrl)
       const finalUrl = finalUrlObject.href
       if (response.status === 204 || response.status === 205) return true
@@ -256,6 +300,18 @@ class NavigationController implements Boost {
       }
 
       const html = await readResponseText(response, this.options.maxResponseBytes)
+      if (cache?.isEligible(url, detail.element) && !cachedResponse && !memoryResponse) {
+        cache.set(
+          url,
+          new Response(html, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+          }),
+          finalUrl,
+          detail.headers,
+        )
+      }
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId)
         timeoutId = undefined
@@ -344,6 +400,7 @@ class NavigationController implements Boost {
       return false
     } finally {
       if (timeoutId !== undefined) clearTimeout(timeoutId)
+      if (method !== 'GET' && method !== 'HEAD') this.clearCache()
       if (this.controller === controller) {
         this.controller = null
         this.progress.done()

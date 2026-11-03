@@ -16,15 +16,15 @@
 
 | Metric | Cold navigation | Pointer-down prefetch |
 | --- | ---: | ---: |
-| Click-to-after-swap median | 170.9 ms | 145.1 ms |
-| Click-to-after-swap p95 | 192.1 ms | 153.6 ms |
+| Click-to-after-swap median | 154.5 ms | 146.3 ms |
+| Click-to-after-swap p95 | 189.6 ms | 149.5 ms |
 | Requests for clicked route | 10 | 10 |
-| Response bytes for clicked route | 875,280 B | 875,280 B |
+| Response bytes for clicked route | 876,860 B | 876,860 B |
 
-- Median perceived navigation latency improved by **25.8 ms (15.1%)**.
-- p95 latency improved by **38.5 ms (20.0%)**.
+- Median perceived navigation latency improved by **8.2 ms (5.3%)**.
+- p95 latency improved by **40.1 ms (21.1%)**.
 - The clicked route used the same number of requests and response bytes. The prefetch request was reused; no second request was made.
-- Two deliberately unused pointer-down prefetches generated **2 requests / 10,908 response bytes**. This is the measurable network cost of speculative requests that users do not follow.
+- Two deliberately unused pointer-down prefetches generated **2 requests / 11,224 response bytes**. This is the measurable network cost of speculative requests that users do not follow.
 
 ## Interpretation
 

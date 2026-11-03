@@ -1,3 +1,4 @@
+import type { NavigationCache } from '../cache/navigation-cache'
 import type { PrefetchOptions, ResolvedPrefetchOptions } from '../types'
 
 const DEFAULT_HEADERS: Record<string, string> = {
@@ -9,6 +10,32 @@ const DEFAULT_HEADERS: Record<string, string> = {
 const CACHE_TTL_MS = 30_000
 const MAX_CACHE_ENTRIES = 8
 const MAX_QUEUED_PREFETCHES = 32
+
+function responseFreshness(response: Response): number {
+  const directives = new Map<string, string | undefined>()
+  for (const part of (response.headers.get('cache-control') ?? '').split(',')) {
+    const [name, ...value] = part.trim().split('=')
+    if (name) directives.set(name.toLowerCase(), value.length ? value.join('=').trim() : undefined)
+  }
+  let maxAge = CACHE_TTL_MS
+  const serverMaxAge = directives.get('max-age')
+  const expires = response.headers.get('expires')
+  if (serverMaxAge !== undefined) {
+    const seconds = Number(serverMaxAge.replace(/^"|"$/g, ''))
+    if (!Number.isFinite(seconds) || seconds <= 0) return 0
+    maxAge = Math.min(maxAge, seconds * 1000)
+  } else if (directives.has('must-revalidate') || directives.has('proxy-revalidate')) {
+    if (!expires) return 0
+  }
+  if (expires) {
+    const expiresAt = Date.parse(expires)
+    if (!Number.isFinite(expiresAt)) return 0
+    maxAge = Math.min(maxAge, expiresAt - Date.now())
+  }
+  const age = Number(response.headers.get('age') ?? 0)
+  if (Number.isFinite(age) && age > 0) maxAge -= age * 1000
+  return Math.max(0, maxAge)
+}
 
 type Entry = {
   controller: AbortController
@@ -57,6 +84,7 @@ export class PrefetchEngine {
     private readonly scopeSelector = '[data-boost="true"]',
     private readonly linkSelector = 'a[href]',
     private readonly maxResponseBytes = 2 * 1024 * 1024,
+    private readonly navigationCache?: NavigationCache,
   ) {}
 
   start(): void {
@@ -74,6 +102,32 @@ export class PrefetchEngine {
     this.refresh()
   }
 
+  clear(input?: string | URL): void {
+    let target: URL | null = null
+    if (input !== undefined) {
+      try {
+        target = input instanceof URL ? new URL(input.href) : new URL(input, window.location.href)
+      } catch {
+        return
+      }
+      if (!this.isSameOriginHttp(target)) return
+    }
+    for (const [key, entry] of this.entries) {
+      if (!target || key === target.href) {
+        entry.controller.abort()
+        entry.resolve(null)
+        this.entries.delete(key)
+      }
+    }
+    if (!target) this.queue.length = 0
+    else {
+      for (let index = this.queue.length - 1; index >= 0; index--) {
+        if (this.queue[index]?.url.href === target.href) this.queue.splice(index, 1)
+      }
+    }
+    this.navigationCache?.clear(input)
+  }
+
   stop(): void {
     if (this.started && typeof document !== 'undefined') {
       document.removeEventListener('pointerover', this.handlePointerOver)
@@ -85,12 +139,7 @@ export class PrefetchEngine {
     this.observer = null
     for (const timer of this.hoverTimers.values()) clearTimeout(timer)
     this.hoverTimers.clear()
-    for (const entry of this.entries.values()) {
-      entry.controller.abort()
-      entry.resolve(null)
-    }
-    this.entries.clear()
-    this.queue.length = 0
+    this.clear()
   }
 
   refresh(): void {
@@ -217,6 +266,7 @@ export class PrefetchEngine {
       })
       const finalUrl = new URL(result.url || url.href)
       const contentType = result.headers.get('content-type')?.split(';', 1)[0]?.trim() ?? ''
+      const freshness = responseFreshness(result)
       const vary =
         result.headers
           .get('vary')
@@ -229,8 +279,15 @@ export class PrefetchEngine {
         result.status === 205 ||
         !this.isSameOriginHttp(finalUrl) ||
         !/^text\/html$|^application\/xhtml\+xml$/i.test(contentType) ||
+        !result.headers
+          .get('cache-control')
+          ?.split(',')
+          .some((directive) => directive.trim().split('=')[0]?.trim().toLowerCase() === 'public') ||
         /(?:no-store|no-cache|private)/i.test(result.headers.get('cache-control') ?? '') ||
+        result.headers.has('set-cookie') ||
+        freshness <= 0 ||
         vary.includes('*') ||
+        vary.includes('cookie') ||
         vary.some((name) => !headerNames.has(name)) ||
         Number(result.headers.get('content-length')) > this.maxResponseBytes
       ) {
@@ -263,7 +320,8 @@ export class PrefetchEngine {
       })
       entry.response = response.clone()
       entry.finalUrl = finalUrl.href
-      entry.expiresAt = Date.now() + CACHE_TTL_MS
+      this.navigationCache?.set(url, response, finalUrl.href, headers)
+      entry.expiresAt = Date.now() + freshness
       this.pruneCache(url.href)
     } catch {
       // Prefetch is opportunistic: failures must never trigger navigation fallback.
@@ -306,6 +364,7 @@ export class PrefetchEngine {
       return null
     }
     if (!this.isSameOriginHttp(url) || url.username || url.password) return null
+    if (this.navigationCache?.isExcluded(url)) return null
     const current = new URL(window.location.href)
     if (
       url.href === current.href ||
@@ -361,6 +420,8 @@ export class PrefetchEngine {
       link.hasAttribute('download') ||
       link.getAttribute('aria-disabled') === 'true' ||
       link.hasAttribute('data-no-prefetch') ||
+      link.hasAttribute('data-no-cache') ||
+      link.getAttribute('data-cache') === 'false' ||
       link.hasAttribute('data-boost-sensitive') ||
       link.hasAttribute('data-confirm') ||
       link.hasAttribute('data-turbo-confirm') ||
@@ -371,7 +432,9 @@ export class PrefetchEngine {
       (link.getAttribute('data-boost-method') &&
         link.getAttribute('data-boost-method')?.toUpperCase() !== 'GET') ||
       link.getAttribute('data-boost-prefetch') === 'false' ||
-      link.closest('[data-boost-prefetch="false"], [data-no-prefetch], [data-boost-sensitive]') ||
+      link.closest(
+        '[data-boost-prefetch="false"], [data-no-prefetch], [data-no-cache], [data-cache="false"], [data-boost-sensitive]',
+      ) ||
       link.closest('[data-boost="false"]')
     )
       return null

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03T15:02:25.870Z",
+  "generatedAt": "2026-11-03T15:21:25.969Z",
   "environment": {
     "platform": "linux",
     "release": "7.0.0-34-generic",
@@ -17,28 +17,28 @@
   "scenarios": {
     "baseline": {
       "navigationLatency": {
-        "medianMs": 170.9,
-        "p95Ms": 192.1
+        "medianMs": 154.5,
+        "p95Ms": 189.6
       },
       "requestCount": 10,
       "serverRequestCount": 10,
-      "responseBytes": 875280,
+      "responseBytes": 876860,
       "iterations": 10
     },
     "pointerdownPrefetch": {
       "navigationLatency": {
-        "medianMs": 145.1,
-        "p95Ms": 153.6
+        "medianMs": 146.3,
+        "p95Ms": 149.5
       },
       "requestCount": 10,
       "serverRequestCount": 10,
-      "responseBytes": 875280,
+      "responseBytes": 876860,
       "iterations": 10
     },
     "unusedPrefetch": {
       "unusedPrefetchRequests": 2,
       "serverRequestCount": 2,
-      "unusedPrefetchResponseBytes": 10908
+      "unusedPrefetchResponseBytes": 11224
     }
   },
   "note": "Local loopback benchmark with deterministic server-side latency injection; not a substitute for field RUM or mobile-network measurements."

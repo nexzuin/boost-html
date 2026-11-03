@@ -68,6 +68,7 @@
     "test:e2e": "npm run build && playwright test",
     "bench": "npm run build && node benchmarks/profile.mjs",
     "bench:prefetch": "npm run build && node benchmarks/prefetch.mjs",
+    "bench:cache": "npm run build && node benchmarks/cache.mjs",
     "size": "size-limit",
     "check": "npm run lint && npm run typecheck && npm run test:coverage && npm run build && npm run size",
     "demo": "npm run build && node demo/server.mjs",
@@ -101,13 +102,19 @@
     {
       "name": "Core ESM shared bundle (5 KB goal pending)",
       "path": "dist/chunk-*.js",
-      "limit": "8.3 kB",
+      "limit": "8.6 kB",
       "gzip": true
     },
     {
       "name": "Optional prefetch ESM chunk",
       "path": "dist/engine-*.js",
-      "limit": "3.2 kB",
+      "limit": "3.7 kB",
+      "gzip": true
+    },
+    {
+      "name": "Optional navigation cache ESM chunk",
+      "path": "dist/navigation-cache-*.js",
+      "limit": "2.2 kB",
       "gzip": true
     },
     {
@@ -119,13 +126,13 @@
     {
       "name": "Core IIFE bundle",
       "path": "dist/core.global.js",
-      "limit": "10.6 kB",
+      "limit": "12.4 kB",
       "gzip": true
     },
     {
       "name": "Browser IIFE bundle",
       "path": "dist/index.global.js",
-      "limit": "10.7 kB",
+      "limit": "12.5 kB",
       "gzip": true
     }
   ]

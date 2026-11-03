@@ -118,6 +118,7 @@ boost.start()
 | `progress`              | `boolean \| ProgressOptions`                             | `true`                               | Native progress bar. `false` disables it; an object configures its timing and appearance.         |
 | `headers`               | `Record<string, string> \| () => Record<string, string>` | `{}`                                 | Extra headers for every boosted request.                                    |
 | `prefetch`              | `PrefetchOptions`                                      | `{ enabled: false }`                  | Optional same-origin GET prefetching; see the Prefetch section below.       |
+| `cache`                 | `NavigationCacheOptions`                              | `{ enabled: false }`                  | Optional in-memory LRU cache for explicitly public HTML GET responses.      |
 
 `ProgressOptions` supports `minimum`, `easing`, `speed`, `trickle`,
 `trickleSpeed`, `showSpinner`, `parent` and `template`. The built-in progress UI uses native DOM and CSS and has no runtime dependency; custom templates use the `#nprogress`, `.bar` and `.spinner` conventions.
@@ -142,11 +143,38 @@ boost.start()
 await boost.prefetch('/docs')
 ```
 
-Prefetch uses delegated pointer listeners only for the selected strategies. Viewport mode uses `IntersectionObserver` with a 200px root margin. It deduplicates in-flight URLs, limits concurrency (maximum 8), keeps at most 8 responses for 30 seconds, and cancels queued or unclaimed pointer-triggered work when the pointer leaves. A navigation that claims an in-flight prefetch is allowed to finish; a queued prefetch is canceled so the user's navigation can start immediately. The queue is capped at 32 pending URLs. A cached response is reused only when its request headers match the navigation headers, so changed per-navigation or authentication headers trigger a normal request instead.
+Prefetch uses delegated pointer listeners only for the selected strategies. Viewport mode uses `IntersectionObserver` with a 200px root margin. It deduplicates in-flight URLs, limits concurrency (maximum 8), keeps at most 8 responses for up to 30 seconds (shorter server freshness directives take precedence), and cancels queued or unclaimed pointer-triggered work when the pointer leaves. A navigation that claims an in-flight prefetch is allowed to finish; a queued prefetch is canceled so the user's navigation can start immediately. The queue is capped at 32 pending URLs. A cached response is reused only when its request headers match the navigation headers, so changed per-navigation or authentication headers trigger a normal request instead.
 
-Requests are skipped while offline, when `Save-Data` is enabled, on `2g` / `slow-2g`, or below 0.5 Mbps reported downlink. Only successful same-origin HTML responses are cached; cross-origin redirects, non-HTML responses, `Vary` on headers not explicitly sent by boost-html, `private`, `no-cache`, `no-store`, and oversized responses are rejected. Prefetch never sends POST requests and never invokes navigation fallback on errors.
+Requests are skipped while offline, when `Save-Data` is enabled, on `2g` / `slow-2g`, or below 0.5 Mbps reported downlink. Only successful same-origin HTML responses explicitly marked `Cache-Control: public` are retained; cross-origin redirects, non-HTML responses, `Vary: Cookie`, `Vary: *`, `Vary` on headers not explicitly sent by boost-html, `private`, `no-cache`, `no-store`, and oversized responses are rejected. Browsers hide `Set-Cookie` from JavaScript, so the server must not set cookies on responses marked public. Prefetch never sends POST requests and never invokes navigation fallback on errors.
 
 Links outside the configured boosted scope are ignored. Add `data-boost-prefetch="false"`, `data-no-prefetch`, or `data-boost-sensitive` to a link or an ancestor to exclude it. Links declaring a non-GET `data-method`, `data-turbo-method`, or `data-boost-method`, or confirmation attributes (`data-confirm`, `data-turbo-confirm`) are also excluded. Use `exclude` for sensitive path prefixes such as logout, account deletion, checkout or other session-changing endpoints. The manual API applies same-origin and network checks; route exclusions apply to manual calls too.
+
+### Navigation cache
+
+The navigation cache is independent of prefetch and is **disabled by default**. It is a per-`createBoost()` in-memory LRU cache; it is not persisted across reloads or shared between instances.
+
+```ts
+const boost = createBoost({
+  cache: {
+    enabled: true,
+    maxEntries: 20,
+    maxAge: 30_000,
+    exclude: ['/reports/private', '/tenant'],
+  },
+})
+
+// Clear all cached responses, including prefetched entries.
+boost.clearCache()
+
+// Or invalidate every header variant for one URL.
+boost.clearCache('/catalog')
+```
+
+Only same-origin **GET** HTML responses with an explicit `Cache-Control: public` directive are eligible. The configured `maxAge` is an upper bound; server `max-age`, `Expires`, and `Age` values can shorten it. Responses with `no-store`, `no-cache`, `private`, `Vary: Cookie`, `Vary: *`, or a `Vary` header that cannot be matched against explicit request headers are not stored. The server must not send `Set-Cookie` on a response marked public; browsers do not expose that header to JavaScript. Non-GET/HEAD requests invalidate the cache before and after the request.
+
+To avoid cross-user leakage, cache entries are scoped to one boost instance and keyed by the complete explicit request-header set. Since browser-managed HttpOnly cookies cannot be inspected, responses must opt in with `Cache-Control: public` and the server must guarantee that the representation is safe to reuse across users; do not mark personalized content public; routes with common sensitive path segments (`account`, `admin`, `auth`, `billing`, `cart`, `checkout`, `dashboard`, `login`, `logout`, `my-account`, `notifications`, `orders`, `payment`, `profile`, `reports`, `session`, `settings`, `subscriptions`, `token`, and user routes) are excluded by default. Add `data-no-cache` or `data-cache="false"` to a link or ancestor to opt out, or configure additional path prefixes in `exclude`. Call `boost.clearCache()` when application authentication or tenant context changes outside a boosted state-changing request.
+
+The cache shares successful prefetch responses when both features are enabled. `boost.clearCache()` also cancels pending prefetches and clears their response entries. Cached responses are cloned for each navigation and are never treated as permanently valid.
 
 ### Attributes
 
@@ -155,7 +183,7 @@ Links outside the configured boosted scope are ignored. Add `data-boost-prefetch
 - `data-boost="false"` — opt out for this element and its subtree. It wins over
   any boosted ancestor.
 - `data-boost-prefetch="false"`, `data-no-prefetch`, or `data-boost-sensitive` —
-  prevent speculative requests for this link and descendants.
+  prevent speculative requests for this link and descendants. Use `data-no-cache` or `data-cache="false"` to exclude a link from both navigation and prefetch caches.
 
 Links are left to the browser when they are external, have `target` other than
 `_self`, have `download`, `aria-disabled="true"`, `rel="external"`, or point
@@ -235,8 +263,7 @@ boost.stop()
 `prefetch()` resolves to `true` when an eligible response was fetched or already cached; it resolves to `false` when disabled, excluded, constrained by network conditions, aborted, or unsuccessful. `navigate()` only accepts same-origin `http(s)` URLs. It resolves to `true`
 when the response was swapped in and `false` when the navigation was rejected,
 aborted, canceled, or failed.
-`stop()` removes the listeners, aborts in-flight requests, removes the
-announcement region and restores the previous `history.scrollRestoration` value.
+`clearCache(url?)` invalidates every cached response or all variants of one URL; it also clears prefetched responses. State-changing requests automatically invalidate cached and prefetched entries. `stop()` removes listeners, aborts in-flight requests, clears memory caches, removes the announcement region and restores the previous `history.scrollRestoration` value.
 Boosted entries store only a version marker, scroll offset and (when available)
 the focused element's ID in a namespaced `history.state` field. Existing object
 state is retained. Same-URL pushes are replaced instead of creating duplicate
@@ -339,6 +366,8 @@ npm run bench
 security filtering, DOM replacement, event delegation, retained JS heap and
 gzip bundle sizes. `npm run bench:prefetch` measures click-to-swap latency and
 network bytes with and without pointer-down prefetch under injected latency.
+`npm run bench:cache` compares cold and LRU-hit navigation latency and records
+V8 heap before fill, after filling the cache, and after `clearCache()`.
 See [benchmark methodology and before/after results](./benchmarks/README.md).
 The 5 KiB core ESM goal is still open; current size-limit thresholds are
 interim regression guards, not a claim that the target has been met.

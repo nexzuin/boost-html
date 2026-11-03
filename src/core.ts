@@ -13,8 +13,10 @@ export type {
   HeadUpdateMode,
   MorphAdapter,
   NavigateOptions,
+  NavigationCacheOptions,
   PrefetchOptions,
   ProgressOptions,
   ResolvedBoostOptions,
+  ResolvedNavigationCacheOptions,
   ResolvedPrefetchOptions,
 } from './types'

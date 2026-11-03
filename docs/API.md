@@ -183,3 +183,39 @@ same representative boost-html response fixtures in Chromium, Firefox and
 WebKit, measuring median/p95 update time, node identity/focus preservation,
 and bundle cost. A future adapter can be installed by the application without
 changing the default core.
+
+## In-memory navigation cache
+
+The optional navigation cache is configured on `createBoost()` and is disabled
+by default:
+
+```ts
+const boost = createBoost({
+  cache: {
+    enabled: true,
+    maxEntries: 20,
+    maxAge: 30_000,
+    exclude: ['/reports/private'],
+  },
+})
+
+boost.clearCache()
+boost.clearCache('/catalog')
+```
+
+The cache is a per-instance LRU of same-origin HTML GET responses. A response
+must explicitly opt in with `Cache-Control: public`; `no-store`, `no-cache`,
+`private`, stale `max-age` / `Expires` / `Age`, `Vary: Cookie`,
+`Vary: *`, and untracked `Vary` headers prevent storage. The configured
+`maxAge` is an upper bound, not an override of shorter server freshness.
+Explicit request headers are included in the cache key, including
+`Authorization`; browser-managed cookies cannot be inspected, so servers must
+never mark user-specific responses public or set cookies on cacheable responses.
+
+Sensitive path segments are excluded by default. Additional path prefixes can
+be supplied with `exclude`; links can opt out with `data-no-cache` or
+`data-cache="false"`. State-changing requests invalidate cache and prefetch
+entries before and after the request. Call `boost.clearCache()` when
+authentication or tenant context changes outside boosted navigation. When
+prefetch is enabled, its eligible public responses are shared with the
+navigation cache.

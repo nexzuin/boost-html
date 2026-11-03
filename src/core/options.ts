@@ -2,6 +2,20 @@ import type { BoostOptions, ResolvedBoostOptions } from '../types'
 
 const DEFAULT_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 
+function resolveCacheOptions(options: BoostOptions['cache']): ResolvedBoostOptions['cache'] {
+  const maxEntries = options?.maxEntries
+  const maxAge = options?.maxAge
+  return {
+    enabled: options?.enabled === true,
+    maxEntries:
+      typeof maxEntries === 'number' && Number.isInteger(maxEntries) && maxEntries > 0
+        ? Math.min(maxEntries, 500)
+        : 20,
+    maxAge: typeof maxAge === 'number' && Number.isFinite(maxAge) && maxAge >= 0 ? maxAge : 30_000,
+    exclude: options?.exclude ?? [],
+  }
+}
+
 function resolvePrefetchOptions(
   options: BoostOptions['prefetch'],
 ): ResolvedBoostOptions['prefetch'] {
@@ -85,5 +99,6 @@ export function resolveOptions(options: BoostOptions): ResolvedBoostOptions {
           : {},
     headers: options.headers ?? {},
     prefetch: resolvePrefetchOptions(options.prefetch),
+    cache: resolveCacheOptions(options.cache),
   }
 }
