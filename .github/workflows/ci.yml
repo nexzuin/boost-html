@@ -9,10 +9,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
     name: Quality (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -27,14 +32,20 @@ jobs:
       - run: npm audit --omit=dev
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm run test:coverage
+      - run: npm run test:unit
       - run: npm run build
       - run: npm run size
+      - run: npm run verify:package
       - run: npm pack --dry-run
 
-  e2e:
-    name: Browser tests (Chromium)
+  browser-tests:
+    name: Browser integration (${{ matrix.browser }})
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,8 +53,21 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - run: npm run build
+      - if: matrix.browser == 'webkit'
+        run: xvfb-run -a npm run test:browser -- --project=webkit
+      - if: matrix.browser != 'webkit'
+        run: npm run test:browser -- --project=${{ matrix.browser }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-${{ matrix.browser }}-failure
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
 
   benchmark:
     name: Benchmark (Chromium)

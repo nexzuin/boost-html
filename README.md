@@ -354,17 +354,23 @@ scroll restoration, inert response scripts and the 500 fallback path.
 
 ```bash
 npm ci
-npx playwright install chromium
+npx playwright install chromium firefox webkit
 npm run lint
 npm run typecheck
-npm run test:coverage
+npm run test:unit
 npm run build
 npm run size
-npm run test:e2e
+npm run test:integration
 npm run bench
 ```
 
-`npm run check` runs lint, typecheck, coverage, build and the size gate.
+`npm run test:unit` runs the Vitest suite with coverage thresholds.
+`npm run test:integration` builds the package and runs Playwright against
+Chromium, Firefox and WebKit. The WebKit Linux project runs headed under Xvfb;
+install the WebKit system dependencies when running outside CI.
+`npm run test:browser -- --project=chromium` runs a single browser project.
+`npm run check` runs lint, typecheck, unit tests with coverage, production
+build, bundle size gates and package export/content verification.
 `npm run bench` measures navigation, request/body reading, HTML parsing,
 security filtering, DOM replacement, event delegation, retained JS heap and
 gzip bundle sizes. `npm run bench:prefetch` measures click-to-swap latency and
