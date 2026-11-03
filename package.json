@@ -1,6 +1,6 @@
 {
   "name": "boost-html",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Progressive enhancement for HTML applications with same-origin Fetch navigation, forms, browser history, optional prefetch, and in-memory caching.",
   "keywords": [
     "html",

@@ -2,13 +2,13 @@
 
 **Audit date:** 2026-11-04
 
-**Current package version:** `0.1.0` (unchanged)
+**Release package version:** `1.0.0`
 
 **Planned release:** `1.0.0`
 
-**Release status:** **BLOCKED — not approved for publication**
-**npm publish:** Not executed  
-**GitHub Release / tag:** Not created
+**Release status:** Release candidate prepared; publication pending workflow execution
+**npm publish:** Pending GitHub Release workflow
+**GitHub Release / tag:** Pending
 
 ## Executive summary
 
@@ -26,8 +26,7 @@ current build toolchain require newer Node versions. The matrix now uses Node 22
 removing the earlier Node 20 runtime deprecation warnings. The latest verified
 full matrix passed both Node quality jobs and Chromium, Firefox, and WebKit
 integration jobs. The workflow is green on the canonical GitHub repository.
-npm publication remains blocked on maintainer-side account configuration and
-explicit release approval.
+The maintainer has approved the v1.0.0 release. Publication remains dependent on successful CI and the configured npm-production environment.
 
 ## Local validation results
 
@@ -55,8 +54,8 @@ explicit release approval.
 | Initial remote GitHub Actions | FAIL (diagnosed) | Node 20 job failed at Vitest; Node 22/24 and all browser jobs passed |
 | Remote GitHub Actions | PASS | Latest verified full matrix passed Node 22.19.0, Node 24.11.0, Chromium, Firefox, and WebKit using Actions v7; no Node 20 deprecation warnings |
 | Publish workflow | PREPARED / NOT TRIGGERED | `publish.yml` gated on published `v1.0.0`, package version check, and `npm-production` environment |
-| npm Trusted Publisher | BLOCKED / PENDING | npm package does not exist yet (registry E404); initial publication/bootstrap required |
-| Branch protection | PENDING | `main` was not protected when checked through GitHub API |
+| npm Trusted Publisher | BLOCKED / PENDING | Initial npm publication is pending; registry E404 indicates no currently published package but does not guarantee name reservation availability |
+| Branch protection | PASS | Active Protect main ruleset; required status checks configured; PR approval count set to 0 by maintainer |
 
 ### Browser coverage
 
@@ -87,8 +86,8 @@ installs WebKit dependencies and invokes the WebKit project with `xvfb-run`.
   form handling, DOM extension points, prefetch, cache, and Trusted Types.
 - `docs/MIGRATION.md` documents the 0.1.x development line to planned 1.0.0.
 - `docs/SECURITY.md` records audit findings, severity, mitigations, and risks.
-- `CHANGELOG.md` has an Unreleased section; it does not claim 1.0.0 is released.
-- `docs/releases/v1.0.0.md` contains draft release notes marked not approved.
+- `CHANGELOG.md` contains the dated `1.0.0` stable release entry and retains the `0.1.0` development baseline.
+- `docs/releases/v1.0.0.md` contains the approved v1.0.0 release notes.
 - `docs/NPM_PUBLISH_CHECKLIST.md` contains manual release and provenance steps.
 
 ## Package and provenance validation
@@ -114,7 +113,7 @@ configured here. See the official npm documentation:
 - https://docs.npmjs.com/trusted-publishers/
 - https://docs.npmjs.com/generating-provenance-statements/
 
-A gated `.github/workflows/publish.yml` has been prepared but not triggered. It
+A gated `.github/workflows/publish.yml` is configured to run only after a published GitHub Release tagged exactly `v1.0.0`. It
 only reacts to a published GitHub Release tagged exactly `v1.0.0`, verifies the
 package version is also `1.0.0`, waits on the `npm-production` environment, and
 runs the full release validation before the npm publish step. No release, tag,
@@ -126,9 +125,9 @@ Publisher configuration still require maintainer action.
 
 | Priority | Blocker | Required action |
 | --- | --- | --- |
-| High | GitHub branch protection is not enabled. | Create a ruleset for `main`; require the two Node quality checks and three browser integration checks, require PRs, and block force-push/deletion. |
-| High | GitHub `npm-production` environment protection is not configured. | Create the environment and add required reviewers before any release. |
-| High | First npm publication and Trusted Publisher setup are pending. | Confirm package-name availability, approve the 1.0.0 release, bootstrap the first publication, then configure the npm Trusted Publisher for `nexzuin/boost-html` / `publish.yml` / `npm-production`. |
+| High | GitHub branch protection is enabled. | Verified active `Protect main` ruleset; PR approval count is 0 for the solo-maintainer workflow. |
+| High | GitHub `npm-production` environment is configured without required reviewers (single maintainer). | Create the environment and add required reviewers before any release. |
+| High | First npm publication and Trusted Publisher setup are pending. | Run the first publication through the guarded workflow using the maintainer-configured NPM_TOKEN; configure npm Trusted Publisher immediately after package creation and remove NPM_TOKEN. |
 | Medium | 5 KiB core ESM gzip target remains open. | Continue optimization if 5 KiB is a hard v1.0.0 requirement; current 8.61 kB is only a regression ceiling. |
 | Medium | Long-duration memory soak testing has not been performed. | Run representative application soak tests and monitor browser-native memory/RSS. |
 | Medium | Trusted Types test runs only in Chromium. | Validate the host application's actual CSP and policy integration in supported browsers. |
@@ -142,14 +141,9 @@ consumers.
 
 ## Final release restrictions
 
-- `package.json.version` remains `0.1.0`.
-- No `npm publish` command was executed.
-- No GitHub Release or Git tag was created.
-- A guarded publish workflow was added but has not been triggered; it requires a published `v1.0.0` GitHub Release and a protected `npm-production` environment.
-- Draft v1.0.0 release notes and checklist do not constitute release approval.
+- `package.json.version` is now `1.0.0` on the release branch.
+- The latest CI matrix passed on the pre-release commit; the release branch must pass the same checks before merge.
+- The `v1.0.0` tag and GitHub Release will be created after the release commit is merged.
+- npm publication is delegated to the gated GitHub Actions workflow and must be verified after the GitHub Release is published.
 
-The stable release remains blocked until branch protection and the protected
-`npm-production` environment are configured, the npm package name is confirmed
-available, the first-publication / Trusted Publisher sequence is completed,
-remaining quality goals are accepted, and the maintainer explicitly approves
-creating the `v1.0.0` release.
+The 5 KiB core ESM gzip goal and long-duration memory soak testing remain known non-blocking limitations documented above.

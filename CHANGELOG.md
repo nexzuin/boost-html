@@ -4,10 +4,9 @@ All notable changes to boost-html are documented here. The project follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and intends to follow
 [Semantic Versioning](https://semver.org/) from the first stable release.
 
-## [Unreleased]
+## [1.0.0] - 2026-11-04
 
-This section contains changes prepared after the `0.1.0` development baseline.
-It is not a published `1.0.0` changelog entry.
+First stable release. The `0.1.0` entry below is the initial development baseline.
 
 ### Added
 

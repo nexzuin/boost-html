@@ -1,10 +1,8 @@
 # npm publish checklist — boost-html v1.0.0
 
-<badge>Preparation only — publishing is disabled</badge>
+<badge>Approved release — publication pending</badge>
 
-This checklist is a manual release procedure. It does not create a GitHub
-Release, tag, or npm publication. Do not execute it until all blockers are
-resolved and the maintainer explicitly approves the release.
+This checklist records the approved v1.0.0 release process. The guarded GitHub Actions workflow performs npm publication only after the GitHub Release is published.
 
 ## 1. Repository and package identity
 
@@ -13,16 +11,13 @@ resolved and the maintainer explicitly approves the release.
 - [x] Prepare `.github/workflows/publish.yml`; it only runs for a published
       GitHub Release tagged `v1.0.0`, checks the package version, and requires
       the `npm-production` GitHub environment.
-- [ ] Configure the `npm-production` GitHub environment with required reviewers
-      before creating any release.
+- [x] Configure the `npm-production` GitHub environment; the solo maintainer has disabled required reviewers.
 - [ ] After the package exists on npm, configure its Trusted Publisher as:
       GitHub Actions / user `nexzuin` / repository `boost-html` / workflow
       filename `publish.yml` / environment `npm-production`.
 - [ ] Allow `npm publish` for that Trusted Publisher. npm requires the workflow
       filename only, not `.github/workflows/`.
-- [ ] Confirm the `boost-html` package name is publishable under the intended
-      npm account; the current public registry lookup returns E404, but that is
-      not a guarantee that the name is reserved-free.
+- [x] Confirm no existing public package is returned by registry lookup (E404); npm will make the definitive name availability check during initial publication.
 - [ ] Confirm package description, keywords, MIT license, `LICENSE`, README,
       changelog, migration guide, and security policy.
 - [ ] Confirm maintainership and npm account ownership / 2FA requirements.
@@ -36,10 +31,7 @@ resolved and the maintainer explicitly approves the release.
       commit before publication.
 - [ ] Review all test artifacts and any retries; do not accept a flaky-only
       green result without investigation.
-- [ ] Enable a `main` branch ruleset requiring pull requests and these status
-      checks: Quality (Node 22.19.0), Quality (Node 24.11.0), Browser
-      integration (chromium), Browser integration (firefox), and Browser
-      integration (webkit). The branch was unprotected at the last API check.
+- [x] Enable the `Protect main` ruleset requiring PRs and all five CI status checks; approval count is 0 for the solo maintainer.
 - [ ] Review `docs/SECURITY.md` and resolve any application-level deployment
       concerns.
 
@@ -62,7 +54,7 @@ npm pack --dry-run --json
 - [ ] Confirm no tests, benchmarks, CI files, local secrets, or temporary
       artifacts are included.
 - [ ] Record the exact tarball file count, unpacked size, and SHA-512 integrity.
-- [ ] Confirm `package.json` version is the approved `1.0.0` only after approval.
+- [x] Set `package.json` and lockfile version to the approved `1.0.0`.
 
 ## 4. npm provenance / trusted publishing
 
@@ -76,14 +68,13 @@ The prepared `.github/workflows/publish.yml` uses a GitHub-hosted runner, Node
 `boost-html`, so no npm package settings page or existing Trusted Publisher can
 be verified. The npm `npm trust` CLI also requires the package to exist first.
 For the first package creation only, a maintainer may add a narrowly scoped
-npm Granular Access Token as the GitHub repository secret `NPM_TOKEN`; the
-workflow passes it only to the publish step and still requests provenance from
-the public GitHub-hosted build. The npm `npm trust` CLI requires the package to
+npm Granular Access Token as the `NPM_TOKEN` secret in the GitHub
+`npm-production` environment; the workflow passes it only to the publish step
+and still requests provenance from the public GitHub-hosted build. The npm `npm trust` CLI requires the package to
 exist first, so the first publication cannot be configured through that CLI.
 After the first successful publication, create the Trusted Publisher using the
-exact values above, verify it with a subsequent approved release, and remove
-`NPM_TOKEN`. Do not create or add this secret until the first release is
-explicitly approved.
+exact values above, verify it with a subsequent approved release, then remove
+`NPM_TOKEN` after OIDC publication succeeds.
 
 npm Trusted Publishing requires npm CLI 11.5.1 or later, Node 22.14.0 or later,
 a public matching repository, a GitHub-hosted runner, and `id-token: write`.
@@ -99,9 +90,9 @@ References:
 
 ## 5. Actual release — explicit approval required
 
-- [ ] Maintainer approves version `1.0.0` and release notes.
-- [ ] Update `package.json` and lockfile version to `1.0.0`.
-- [ ] Move the approved changes into a dated `CHANGELOG.md` release section.
+- [x] Maintainer approved version `1.0.0` and release process.
+- [x] Update `package.json` and lockfile version to `1.0.0`.
+- [x] Move the approved changes into a dated `CHANGELOG.md` release section.
 - [ ] Create and push the annotated `v1.0.0` tag.
 - [ ] Create the GitHub Release only after the tag and CI status are verified.
 - [ ] Use the configured trusted-publishing workflow to publish to npm with
@@ -114,9 +105,9 @@ References:
 ## Current blockers
 
 - The corrected GitHub Actions matrix must pass after the latest commit is pushed.
-- The `npm-production` GitHub environment needs required reviewers.
+- The `npm-production` GitHub environment is configured for the solo maintainer.
 - The package does not exist on npm yet (registry E404); first-publication bootstrap and Trusted Publisher configuration remain pending.
-- The `main` branch is not protected by a required-check ruleset.
-- The package version is still `0.1.0` by design.
+- The `main` branch is protected by the active `Protect main` ruleset.
+- The release branch package version is `1.0.0`.
 
 Do not bypass these blockers or publish from a local workstation.
