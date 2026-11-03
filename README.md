@@ -306,6 +306,11 @@ npm run bench
 ```
 
 `npm run check` runs lint, typecheck, coverage, build and the size gate.
+`npm run bench` measures navigation, request/body reading, HTML parsing,
+security filtering, DOM replacement, event delegation, retained JS heap and
+gzip bundle sizes. See [benchmark methodology and before/after results](./benchmarks/README.md).
+The 5 KiB core ESM goal is still open; current size-limit thresholds are
+interim regression guards, not a claim that the target has been met.
 `npm run build` emits minified ESM, CJS, an IIFE browser bundle, sourcemaps and
 type declarations in `dist/`.
 

@@ -188,7 +188,7 @@ describe('DOM Engine', () => {
   it('removes scripts, inline handlers, and javascript URLs from response descendants', async () => {
     fetchMock.mockResolvedValue(
       response(
-        '<main id="content"><button onclick="alert(1)">Click</button><a href="javascript:alert(1)">Bad</a><a href="&#x6a;avascript:alert(1)">Encoded</a><svg><a xlink:href="javascript:alert(1)">SVG</a></svg><iframe srcdoc="<script>alert(1)</script>"></iframe><script src="/evil.js"></script></main>',
+        '<main id="content"><button onclick="alert(1)">Click</button><a href="javascript:alert(1)">Bad</a><a href="&#x6a;avascript:alert(1)">Encoded</a><a href="java&Tab;script:alert(1)">Whitespace encoded</a><svg><a xlink:href="javascript:alert(1)">SVG</a></svg><iframe srcdoc="<script>alert(1)</script>"></iframe><script src="/evil.js"></script></main>',
       ),
     )
     boost = createBoost({ progress: false, scroll: false, target: '#content' })
@@ -197,9 +197,21 @@ describe('DOM Engine', () => {
     const anchors = document.querySelectorAll('a')
     expect(anchors[0]?.getAttribute('href')).toBeNull()
     expect(anchors[1]?.getAttribute('href')).toBeNull()
+    expect(anchors[2]?.getAttribute('href')).toBeNull()
     expect(document.querySelector('svg a')?.getAttribute('xlink:href')).toBeNull()
     expect(document.querySelector('iframe')?.hasAttribute('srcdoc')).toBe(false)
     expect(document.querySelector('script[src="/evil.js"]')).toBeNull()
+  })
+
+  it('filters entity-obfuscated URL schemes even without other active markup', async () => {
+    fetchMock.mockResolvedValue(
+      response('<main id="content"><a href="java&Tab;script:alert(1)">Unsafe</a></main>'),
+    )
+    boost = createBoost({ progress: false, scroll: false, target: '#content' })
+
+    await expect(boost.navigate('/obfuscated-url')).resolves.toBe(true)
+
+    expect(document.querySelector('#content a')?.getAttribute('href')).toBeNull()
   })
 
   it('does not leave replaced descendant listeners attached to live DOM', async () => {

@@ -7,20 +7,42 @@ export function isHtmlResponse(response: Response): boolean {
   )
 }
 
+function createDecoder(contentType: string | null): TextDecoder {
+  const charset = /charset=([^;]+)/i
+    .exec(contentType ?? '')?.[1]
+    ?.trim()
+    .replace(/^["']|["']$/g, '')
+  try {
+    return new TextDecoder(charset || 'utf-8')
+  } catch {
+    return new TextDecoder()
+  }
+}
+
+/**
+ * Read a bounded response body. Decode chunks as they arrive so the reader
+ * does not retain every Uint8Array and then allocate/copy a second full buffer.
+ */
 export async function readResponseText(response: Response, maxBytes: number): Promise<string> {
   if (maxBytes > 0) {
     const contentLength = Number(response.headers.get('content-length'))
-    if (Number.isFinite(contentLength) && contentLength > maxBytes)
+    if (Number.isFinite(contentLength) && contentLength > maxBytes) {
       throw new ResponseTooLargeError(maxBytes)
+    }
   }
+
   const body = response.body
   if (maxBytes <= 0 || !body || typeof body.getReader !== 'function') {
     const text = await response.text()
-    if (maxBytes > 0 && text.length > maxBytes) throw new ResponseTooLargeError(maxBytes)
+    if (maxBytes > 0 && new TextEncoder().encode(text).byteLength > maxBytes) {
+      throw new ResponseTooLargeError(maxBytes)
+    }
     return text
   }
+
   const reader = body.getReader()
-  const chunks: Uint8Array[] = []
+  const decoder = createDecoder(response.headers.get('content-type'))
+  const chunks: string[] = []
   let total = 0
   try {
     for (;;) {
@@ -32,7 +54,7 @@ export async function readResponseText(response: Response, maxBytes: number): Pr
         await reader.cancel().catch(() => {})
         throw new ResponseTooLargeError(maxBytes)
       }
-      chunks.push(value)
+      chunks.push(decoder.decode(value, { stream: true }))
     }
   } finally {
     try {
@@ -41,23 +63,6 @@ export async function readResponseText(response: Response, maxBytes: number): Pr
       /* may already be released */
     }
   }
-  return decodeBytes(chunks, total, response.headers.get('content-type'))
-}
-
-function decodeBytes(chunks: Uint8Array[], total: number, contentType: string | null): string {
-  const bytes = new Uint8Array(total)
-  let offset = 0
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset)
-    offset += chunk.byteLength
-  }
-  const charset = /charset=([^;]+)/i
-    .exec(contentType ?? '')?.[1]
-    ?.trim()
-    .replace(/^["']|["']$/g, '')
-  try {
-    return new TextDecoder(charset || 'utf-8').decode(bytes)
-  } catch {
-    return new TextDecoder().decode(bytes)
-  }
+  chunks.push(decoder.decode())
+  return chunks.join('')
 }

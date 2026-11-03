@@ -119,13 +119,18 @@ const URL_ATTRIBUTES = new Set([
 const ACTIVE_CONTENT_SELECTOR =
   'script,template,[srcdoc],[href],[src],[xlink\\:href],[action],[formaction],[poster],[data]'
 const ACTIVE_BODY_MARKUP =
-  /<script\b|\ssrcdoc\b|\son[a-z][\w-]*(?=\s|=|>)|\b(?:href|src|xlink:href|action|formaction|poster|data)\s*=/i
+  /<script\b|<template\b|\ssrcdoc\b|\son[a-z][\w-]*(?=\s|=|>)|\b(?:href|src|xlink:href|action|formaction|poster|data)\s*=\s*(?:"[^"]*(?:javascript|vbscript|&#|&[a-z][a-z0-9]+;|\s)[^"]*"|'[^']*(?:javascript|vbscript|&#|&[a-z][a-z0-9]+;|\s)[^']*'|[^\s>]*(?:javascript|vbscript|&#|&[a-z][a-z0-9]+;|\s)[^\s>]*)/i
 const EVENT_ATTRIBUTE_PATTERN = /\s(on[a-z][a-z0-9-]*)(?=\s|=|>)/gi
 
 function getActiveBodyMarkup(sourceHTML: string): string | null {
-  // Scan the source rather than extracting a body substring: literal closing
-  // body text inside comments or script strings must not truncate the check.
-  return ACTIVE_BODY_MARKUP.test(sourceHTML) ? sourceHTML : null
+  // Ignore scripts in <head>; only the target subtree is inserted. Deliberately
+  // scan to EOF rather than looking for </body>, which may occur in comments or
+  // script strings. Entity-bearing URL attributes are conservatively inspected.
+  const bodyStart = /<body\b[^>]*>/i.exec(sourceHTML)
+  const bodyMarkup = bodyStart
+    ? sourceHTML.slice(bodyStart.index + bodyStart[0].length)
+    : sourceHTML
+  return ACTIVE_BODY_MARKUP.test(bodyMarkup) ? bodyMarkup : null
 }
 
 /**

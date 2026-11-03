@@ -41,7 +41,6 @@ import type {
   NavigateOptions,
   ResolvedBoostOptions,
 } from '../types'
-import { withRequestedHash } from '../utils/url'
 
 const HANDLED = Symbol.for('boost-html:handled')
 
@@ -202,7 +201,8 @@ class NavigationController implements Boost {
         return false
       }
 
-      const finalUrl = this.resolveFinalUrl(response, url)
+      const finalUrlObject = this.resolveFinalUrl(response, url)
+      const finalUrl = finalUrlObject.href
       if (response.status === 204 || response.status === 205) return true
       if (!response.ok) {
         throw new Error(`Request to ${url.href} failed with status ${response.status}`)
@@ -267,8 +267,8 @@ class NavigationController implements Boost {
         this.hardNavigate(finalUrl)
         return false
       }
-      this.applyScroll(finalUrl, init.scrollY ?? null)
-      focusAfterNavigation(target, this.options.focus, init.focusId, resolveUrl(finalUrl)?.hash)
+      this.applyScroll(init.scrollY ?? null, finalUrlObject.hash)
+      focusAfterNavigation(target, this.options.focus, init.focusId, finalUrlObject.hash)
       if (this.options.announce) announceNavigation(document.title)
       this.dispatch('boost:after-dom-update', updateDetail, false)
 
@@ -341,7 +341,7 @@ class NavigationController implements Boost {
    * origin or uses a non-http(s) scheme, otherwise URL and displayed content
    * can diverge and cross-origin HTML (with scripts) would be injected.
    */
-  private resolveFinalUrl(response: Response, requested: URL): string {
+  private resolveFinalUrl(response: Response, requested: URL): URL {
     let finalUrl: URL
     try {
       finalUrl = new URL(response.url || requested.href)
@@ -355,8 +355,16 @@ class NavigationController implements Boost {
     if (finalUrl.origin !== window.location.origin) {
       throw new Error(`Refusing to swap a cross-origin response from "${finalUrl.origin}"`)
     }
+    if (
+      requested.hash &&
+      !finalUrl.hash &&
+      finalUrl.pathname === requested.pathname &&
+      finalUrl.search === requested.search
+    ) {
+      finalUrl.hash = requested.hash
+    }
 
-    return withRequestedHash(finalUrl.href, requested)
+    return finalUrl
   }
 
   private isBoosted(element: Element): boolean {
@@ -494,13 +502,12 @@ class NavigationController implements Boost {
     return commitHistory(target, push, requested)
   }
 
-  private applyScroll(finalUrl: string, scrollY: number | null): void {
+  private applyScroll(scrollY: number | null, hash: string): void {
     if (!this.options.scroll) return
     if (scrollY !== null) {
       scrollToPosition(scrollY)
       return
     }
-    const hash = resolveUrl(finalUrl)?.hash
     if (hash && scrollToHash(hash)) return
     scrollToTop()
   }

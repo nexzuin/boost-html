@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
 const port = Number(process.env.BENCH_PORT ?? 4174)
-const counts = { small: 20, medium: 2_000, large: 20_000 }
+const counts = { small: 10, medium: 100, large: 1_000 }
 
 function page(title, content) {
   return `<!doctype html>

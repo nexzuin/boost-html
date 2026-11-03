@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBoost } from '../src/core'
+import { ResponseTooLargeError, readResponseText } from '../src/dom'
 
 const html =
   '<!doctype html><html><head><title>Response</title></head><body><h1>Loaded</h1></body></html>'
@@ -37,6 +38,38 @@ describe('request and response pipeline', () => {
     expect(fallback).toHaveBeenCalled()
     expect(document.querySelector('h1')).toBeNull()
     boost.stop()
+  })
+
+  it('decodes UTF-8 safely when multibyte characters cross stream chunks', async () => {
+    const expected = 'Boost HTML 🌍 café'
+    const bytes = new TextEncoder().encode(expected)
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const byte of bytes) controller.enqueue(Uint8Array.of(byte))
+        controller.close()
+      },
+    })
+    const body = new Response(stream, {
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    })
+
+    await expect(readResponseText(body, bytes.byteLength)).resolves.toBe(expected)
+  })
+
+  it('enforces response limits using encoded byte length', async () => {
+    const body = new Response('é', {
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    })
+
+    await expect(readResponseText(body, 1)).rejects.toBeInstanceOf(ResponseTooLargeError)
+  })
+
+  it('falls back to UTF-8 for unsupported response charsets', async () => {
+    const body = new Response('café', {
+      headers: { 'content-type': 'text/html; charset=unsupported-charset' },
+    })
+
+    await expect(readResponseText(body, 100)).resolves.toBe('café')
   })
 
   it('passes custom headers to the native Fetch API', async () => {

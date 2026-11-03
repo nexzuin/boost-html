@@ -1,0 +1,202 @@
+{
+  "generatedAt": "2026-11-03T14:30:26.992Z",
+  "environment": {
+    "platform": "linux",
+    "release": "7.0.0-34-generic",
+    "architecture": "x64",
+    "cpu": "Intel(R) Core(TM) i7-9700 CPU @ 3.00GHz",
+    "logicalCpus": 8,
+    "node": "v24.21.0",
+    "playwright": "1.64.1",
+    "chromium": "156.0.8078.4",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36",
+    "hardwareConcurrency": 8,
+    "iterations": 25,
+    "memoryIterations": 40,
+    "memoryMeasurement": "CDP V8 heap usedSize after forced garbage collection; not total process/RSS"
+  },
+  "fixtures": {
+    "small": "10 generated article sections; 30+ document elements (target: 10–50)",
+    "medium": "100 generated article sections; 300+ document elements (target: 100–500)",
+    "large": "1,000 generated article sections; 3,000+ document elements (target: 1,000–5,000)"
+  },
+  "results": {
+    "navigation": {
+      "small": {
+        "elements": 44,
+        "responseBytes": 1379,
+        "navigationClickToAfterSwap": {
+          "medianMs": 3.9,
+          "p95Ms": 4.5,
+          "minMs": 3.6,
+          "maxMs": 4.6
+        },
+        "requestFetch": {
+          "medianMs": 1.2,
+          "p95Ms": 2,
+          "minMs": 0.9,
+          "maxMs": 2.8
+        },
+        "responseBodyRead": {
+          "medianMs": 0.2,
+          "p95Ms": 0.3,
+          "minMs": 0.1,
+          "maxMs": 0.7
+        },
+        "requestProcessing": {
+          "medianMs": 1.4,
+          "p95Ms": 2.7,
+          "minMs": 1.2,
+          "maxMs": 3.1
+        },
+        "domParser": {
+          "medianMs": 0.1,
+          "p95Ms": 0.1,
+          "minMs": 0,
+          "maxMs": 0.3
+        },
+        "securityFiltering": {
+          "medianMs": 0,
+          "p95Ms": 0,
+          "minMs": 0,
+          "maxMs": 0.3
+        },
+        "nativeDOMReplacement": {
+          "medianMs": 0,
+          "p95Ms": 0,
+          "minMs": 0,
+          "maxMs": 0.1
+        }
+      },
+      "medium": {
+        "elements": 314,
+        "responseBytes": 9131,
+        "navigationClickToAfterSwap": {
+          "medianMs": 6.9,
+          "p95Ms": 11.8,
+          "minMs": 6,
+          "maxMs": 12.1
+        },
+        "requestFetch": {
+          "medianMs": 1.3,
+          "p95Ms": 1.7,
+          "minMs": 1.1,
+          "maxMs": 1.7
+        },
+        "responseBodyRead": {
+          "medianMs": 0.3,
+          "p95Ms": 0.4,
+          "minMs": 0.1,
+          "maxMs": 0.5
+        },
+        "requestProcessing": {
+          "medianMs": 1.6,
+          "p95Ms": 2,
+          "minMs": 1.3,
+          "maxMs": 2.1
+        },
+        "domParser": {
+          "medianMs": 0.3,
+          "p95Ms": 0.4,
+          "minMs": 0.2,
+          "maxMs": 0.4
+        },
+        "securityFiltering": {
+          "medianMs": 0,
+          "p95Ms": 0.1,
+          "minMs": 0,
+          "maxMs": 0.1
+        },
+        "nativeDOMReplacement": {
+          "medianMs": 0.1,
+          "p95Ms": 0.1,
+          "minMs": 0,
+          "maxMs": 0.2
+        }
+      },
+      "large": {
+        "elements": 3014,
+        "responseBytes": 87329,
+        "navigationClickToAfterSwap": {
+          "medianMs": 25.7,
+          "p95Ms": 37.4,
+          "minMs": 21.7,
+          "maxMs": 38.4
+        },
+        "requestFetch": {
+          "medianMs": 1.8,
+          "p95Ms": 6,
+          "minMs": 1.6,
+          "maxMs": 6.9
+        },
+        "responseBodyRead": {
+          "medianMs": 0.6,
+          "p95Ms": 1.7,
+          "minMs": 0.5,
+          "maxMs": 1.8
+        },
+        "requestProcessing": {
+          "medianMs": 2.5,
+          "p95Ms": 7,
+          "minMs": 2.3,
+          "maxMs": 8.6
+        },
+        "domParser": {
+          "medianMs": 2,
+          "p95Ms": 2.2,
+          "minMs": 1.7,
+          "maxMs": 4.2
+        },
+        "securityFiltering": {
+          "medianMs": 0.3,
+          "p95Ms": 0.5,
+          "minMs": 0.2,
+          "maxMs": 0.5
+        },
+        "nativeDOMReplacement": {
+          "medianMs": 0.6,
+          "p95Ms": 1,
+          "minMs": 0.4,
+          "maxMs": 1
+        }
+      }
+    },
+    "eventDelegation": {
+      "eventsPerSample": 10000,
+      "samples": 7,
+      "totalDispatch": {
+        "medianMs": 14.5,
+        "p95Ms": 20.2,
+        "minMs": 12.8,
+        "maxMs": 20.2
+      },
+      "microsecondsPerEvent": 1.45
+    },
+    "repeatedNavigationMemory": {
+      "samplesBytes": [876940, 888764, 890348, 891468, 894320, 893828],
+      "deltaPerCycleBytes": [11824, 1584, 1120, 2852, -492],
+      "totalDeltaBytes": 16888,
+      "cycles": 5,
+      "navigationsPerCycle": 40,
+      "heapMeasurement": "CDP HeapProfiler.collectGarbage + Runtime.getHeapUsage usedSize"
+    },
+    "bundleSizes": {
+      "dist/core.js": {
+        "rawBytes": 20915,
+        "gzipBytes": 7549
+      },
+      "dist/index.js": {
+        "rawBytes": 21071,
+        "gzipBytes": 7607
+      },
+      "dist/core.global.js": {
+        "rawBytes": 21380,
+        "gzipBytes": 7734
+      },
+      "dist/index.global.js": {
+        "rawBytes": 21537,
+        "gzipBytes": 7800
+      }
+    }
+  }
+}

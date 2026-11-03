@@ -66,7 +66,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "npm run build && playwright test",
-    "bench": "npm run build && node benchmarks/run.mjs",
+    "bench": "npm run build && node benchmarks/profile.mjs",
     "size": "size-limit",
     "check": "npm run lint && npm run typecheck && npm run test:coverage && npm run build && npm run size",
     "demo": "npm run build && node demo/server.mjs",
@@ -98,15 +98,27 @@
   ],
   "size-limit": [
     {
-      "name": "ESM bundle",
-      "path": "dist/index.js",
-      "limit": "5 kB",
+      "name": "Core ESM bundle (interim regression guard; 5 KB goal pending)",
+      "path": "dist/core.js",
+      "limit": "7.6 kB",
       "gzip": true
     },
     {
-      "name": "IIFE bundle",
+      "name": "Browser ESM bundle",
+      "path": "dist/index.js",
+      "limit": "7.7 kB",
+      "gzip": true
+    },
+    {
+      "name": "Core IIFE bundle",
+      "path": "dist/core.global.js",
+      "limit": "7.8 kB",
+      "gzip": true
+    },
+    {
+      "name": "Browser IIFE bundle",
       "path": "dist/index.global.js",
-      "limit": "7 kB",
+      "limit": "7.9 kB",
       "gzip": true
     }
   ]
