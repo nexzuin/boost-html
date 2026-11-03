@@ -125,3 +125,35 @@ test('replaces only the configured response target', async ({ page }) => {
   await expect(page.locator('nav')).toBeVisible()
   await expect(page).toHaveTitle('Partial')
 })
+
+test('restores the previous scroll position when returning with browser back', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(() => {
+    const style = document.createElement('style')
+    style.textContent = 'body { min-height: 3000px; }'
+    document.head.append(style)
+    window.scrollTo(0, 680)
+  })
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(500)
+
+  await page.evaluate(() => {
+    document
+      .querySelector<HTMLAnchorElement>('a[href="/about"]')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }))
+  })
+  await expect(page).toHaveURL(/\/about$/)
+  await page.goBack()
+  await expect(page).toHaveURL(/\/$/)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(500)
+})
+
+test('supports keyboard activation and announces the destination', async ({ page }) => {
+  await page.goto('/')
+  const about = page.getByRole('link', { name: 'About', exact: true })
+  await about.focus()
+  await page.keyboard.press('Enter')
+
+  await expect(page).toHaveURL(/\/about$/)
+  await expect(page.locator('[role="status"][aria-live="polite"]')).toContainText('About')
+  await expect(page.locator('main, h1').first()).toBeFocused()
+})

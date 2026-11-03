@@ -68,8 +68,12 @@ export interface BoostOptions {
   createHTML?: (html: string) => string | object
   /** Update `history` on navigation. @default true */
   history?: boolean
-  /** Scroll to the top (or to the URL hash) after a swap. @default true */
+  /** Scroll to the top, URL hash, or saved position after a swap. @default true */
   scroll?: boolean
+  /** Focus the main landmark after navigation, a selector, or false to disable. @default true */
+  focus?: boolean | string
+  /** Announce successful page changes through a polite live region. @default true */
+  announce?: boolean
   /** @deprecated Scripts are never automatically executed. Use `scriptHandler` for explicit handling. */
   executeScripts?: boolean
   /**
@@ -109,6 +113,8 @@ export interface ResolvedBoostOptions {
   createHTML?: (html: string) => string | object
   history: boolean
   scroll: boolean
+  focus: string | false
+  announce: boolean
   executeScripts: boolean
   nonce: string
   maxResponseBytes: number
@@ -137,6 +143,8 @@ export interface NavigateOptions {
   form?: HTMLFormElement | null
   /** Explicit scroll position to restore after the swap. */
   scrollY?: number | null
+  /** Internal history focus target restored on browser back/forward. */
+  focusId?: string | null
 }
 
 export interface BoostRequestDetail {

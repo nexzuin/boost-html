@@ -9,8 +9,9 @@ full page reload, while the markup stays plain HTML. Without JavaScript, links a
 keep working exactly as usual.
 
 - Intercepts same-origin links and form submissions
-- Updates `document.title` and `history` (`pushState` / `popstate`)
-- Restores the scroll position when navigating back and forward
+- Updates `document.title` and the native History API (`pushState`, `replaceState`, `popstate`)
+- Restores scroll position and focused element when navigating back and forward
+- Focuses the main landmark after navigation and announces page changes to assistive technology
 - Native DOM replacement by default, with optional custom swap and morph adapters
 - Response scripts are removed; explicit script handling is opt-in
 - Includes a small native progress bar (styles injected automatically, no CSS import needed)
@@ -105,8 +106,10 @@ boost.start()
 | `scriptHandler`         | `DOMScriptHandler`                                          | —                                    | Explicit handler for detached response script nodes.                         |
 | `head`                  | `'title' \| 'metadata' \| false`                         | `'title'`                            | Update title, title plus safe metadata, or no head fields.                   |
 | `createHTML`            | `(html: string) => string \| object`                       | —                                    | Trusted Types policy hook before DOMParser.                                   |
-| `history`               | `boolean`                                                | `true`                               | Push history entries and handle `popstate`.                                 |
-| `scroll`                | `boolean`                                                | `true`                               | Scroll to the top or to the URL hash after a swap.                          |
+| `history`               | `boolean`                                                | `true`                               | Use `pushState` / `replaceState` and handle boost-owned `popstate` entries. |
+| `scroll`                | `boolean`                                                | `true`                               | Scroll to the top, URL hash, or saved back/forward position after a swap.    |
+| `focus`                 | `boolean \| string`                                     | `true`                               | Focus the main landmark after navigation, a selector, or disable with `false`. |
+| `announce`              | `boolean`                                                | `true`                               | Announce successful page changes through a polite live region.             |
 | `executeScripts`        | `boolean`                                                | `false`                              | Deprecated compatibility option; scripts are never automatically executed. |
 | `nonce`                 | `string`                                                 | `''`                                 | CSP nonce for progress styles; also passed to the explicit script handler. |
 | `maxResponseBytes`      | `number`                                                 | `2097152` (2 MiB)                    | Maximum response body size. `0` disables the limit.                         |
@@ -126,8 +129,10 @@ boost.start()
   any boosted ancestor.
 
 Links are left to the browser when they are external, have `target` other than
-`_self`, have `download`, `rel="external"`, or point to the current hash. Clicks
-with modifier keys or a non-primary button are ignored too.
+`_self`, have `download`, `aria-disabled="true"`, `rel="external"`, or point
+to the current hash. Clicks with modifier keys or a non-primary button are ignored
+too. Native anchors and forms remain keyboard-operable; boost-html does not
+override browser keyboard activation or tab order.
 
 ## Requests
 
@@ -201,8 +206,20 @@ boost.stop()
 `navigate()` only accepts same-origin `http(s)` URLs. It resolves to `true`
 when the response was swapped in and `false` when the navigation was rejected,
 aborted, canceled, or failed.
-`stop()` removes the listeners, aborts in-flight requests and restores the
-previous `history.scrollRestoration` value.
+`stop()` removes the listeners, aborts in-flight requests, removes the
+announcement region and restores the previous `history.scrollRestoration` value.
+Boosted entries store only a version marker, scroll offset and (when available)
+the focused element's ID in a namespaced `history.state` field. Existing object
+state is retained. Same-URL pushes are replaced instead of creating duplicate
+entries. Unmarked entries owned by the browser or another router are not
+intercepted on `popstate`.
+
+`focus` defaults to automatic focus of the response's `main`, `[role="main"]`,
+or `h1` only when the previous focus was lost with replaced content. Pass a CSS
+selector to choose another focus target, `'target'` to focus the swap target, or
+`false` to disable focus management. Focus is not moved when a persistent
+control outside the swap target remains focused. `announce` defaults to true
+and uses a visually hidden `role="status"` / `aria-live="polite"` region.
 
 ## Security
 

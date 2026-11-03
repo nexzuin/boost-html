@@ -114,6 +114,49 @@ boost-html does not create a policy and does not claim to sanitize content.
 Under a strict Trusted Types CSP, returning a plain string may still be
 rejected by the browser.
 
+## History, scroll and accessibility
+
+The History Engine uses the browser's native History API. A successful
+navigation pushes a new entry by default; pass `{ push: 'replace' }` to replace
+the current entry, or `{ push: false }` for a history traversal that must not
+create another entry. A push to the current URL is converted to a replacement
+to avoid duplicate entries. Redirects are committed using the final validated
+same-origin URL, so the address bar follows the document that was rendered.
+If a History API write fails after a swap, the engine starts a native navigation
+to the final URL rather than leaving the address bar and content divergent.
+
+Boost-owned entries are marked with a compact, versioned `__boostHtml` field
+inside `history.state`. It stores the outgoing scroll offset and, when
+available, the focused element's ID. Existing object state is copied forward
+and retained. Non-plain application state values (for example arrays or
+dates) are retained under `__boostHtmlOriginalState` when a wrapper is required. Only entries carrying
+the boost marker are handled on `popstate`; entries owned by the browser or
+another router are left alone.
+
+When history and scroll management are enabled, the engine temporarily sets
+`history.scrollRestoration = 'manual'` and restores the previous value on
+`stop()`. It saves the outgoing entry before a push, restores the saved
+position on back/forward, scrolls to a decoded hash target when present, and
+otherwise scrolls to the top. Set `scroll: false` to leave scrolling to the
+browser/application. Same-document hash links are not intercepted, preserving
+native anchor behavior.
+
+Focus defaults to automatic focus of the response's `main`, `[role="main"]`,
+or `h1`, but only when the old focused element was removed. A hash target or
+the previous entry's focused element ID takes precedence when available.
+Configure `focus: '#selector'` or `focus: 'target'` to choose another target;
+use `focus: false` to disable focus management. Persistent controls outside
+the swap target retain focus and are not interrupted. Newly focused non-
+interactive landmarks receive temporary `tabindex="-1"` which is removed
+when focus leaves.
+
+Successful navigations are announced through a visually hidden polite live
+region (`role="status"`, `aria-live="polite"`). Set `announce: false` to
+disable it. Native links and forms keep their browser keyboard activation and
+tab order; boost-html delegates click and submit events rather than replacing
+keyboard behavior. `stop()` removes the live region, listeners and restores
+the previous scroll-restoration setting.
+
 ## Morph adapter evaluation
 
 No morphing package is installed by boost-html. The adapter boundary is stable

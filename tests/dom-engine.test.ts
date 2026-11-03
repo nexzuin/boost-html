@@ -33,7 +33,7 @@ describe('DOM Engine', () => {
     fetchMock.mockResolvedValue(response('<h1>New body</h1>'))
     const navigation = await boost.navigate('/body')
     expect(navigation).toBe(true)
-    expect(document.body.innerHTML).toContain('<h1>New body</h1>')
+    expect(document.querySelector('h1')?.textContent).toBe('New body')
     expect(document.querySelector('#persistent')).toBeNull()
     expect(document.title).toBe('Response title')
     expect(boost.options.swapStrategy).toBe('replace')

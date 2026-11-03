@@ -1,3 +1,8 @@
+import {
+  announceNavigation,
+  focusAfterNavigation,
+  removeAnnouncementRegion,
+} from '../accessibility/navigation'
 import { resolveOptions } from '../core/options'
 import {
   encodeFormBody,
@@ -16,7 +21,14 @@ import {
   updateDocumentHead,
 } from '../dom/engine'
 import { dispatchEvent } from '../events/events'
-import { commitHistory, rememberScrollPosition } from '../history/history'
+import {
+  commitHistory,
+  getHistoryFocusId,
+  getHistoryScrollPosition,
+  initializeHistoryEntry,
+  isBoostHistoryState,
+  rememberScrollPosition,
+} from '../history/history'
 import { createProgress, type Progress } from '../progress'
 import { sendRequest } from '../request/request'
 import type {
@@ -74,11 +86,18 @@ class NavigationController implements Boost {
     this.started = true
     document.addEventListener('click', this.handleClick as EventListener)
     document.addEventListener('submit', this.handleSubmit as EventListener)
-    window.addEventListener('popstate', this.handlePopState as EventListener)
 
+    if (this.options.history) {
+      window.addEventListener('popstate', this.handlePopState as EventListener)
+      initializeHistoryEntry()
+    }
     if (this.options.history && this.options.scroll && 'scrollRestoration' in history) {
-      this.previousScrollRestoration = history.scrollRestoration
-      history.scrollRestoration = 'manual'
+      try {
+        this.previousScrollRestoration = history.scrollRestoration
+        history.scrollRestoration = 'manual'
+      } catch {
+        this.previousScrollRestoration = null
+      }
     }
     return this
   }
@@ -96,9 +115,14 @@ class NavigationController implements Boost {
     this.progress.done()
 
     if (this.previousScrollRestoration !== null) {
-      history.scrollRestoration = this.previousScrollRestoration
+      try {
+        history.scrollRestoration = this.previousScrollRestoration
+      } catch {
+        /* the host may have disabled History API mutation */
+      }
       this.previousScrollRestoration = null
     }
+    removeAnnouncementRegion()
     return this
   }
 
@@ -226,7 +250,7 @@ class NavigationController implements Boost {
       if (!this.dispatch('boost:before-dom-update', updateDetail, true)) return false
       if (!this.isCurrent(controller)) return false
 
-      if (init.push !== false) this.rememberScroll()
+      if (init.push === undefined || init.push === true) this.rememberScroll()
       const scripts = updateDOM(
         domContext,
         {
@@ -237,8 +261,15 @@ class NavigationController implements Boost {
         html,
       )
       updateDocumentHead(document, doc, this.options.head)
-      if (this.options.history) this.commitHistory(finalUrl, init.push ?? true, url.href)
+      if (this.options.history && !this.commitHistory(finalUrl, init.push ?? true, url.href)) {
+        // Keep the address bar and rendered document consistent if History API
+        // mutation is blocked by the browser or host environment.
+        this.hardNavigate(finalUrl)
+        return false
+      }
       this.applyScroll(finalUrl, init.scrollY ?? null)
+      focusAfterNavigation(target, this.options.focus, init.focusId, resolveUrl(finalUrl)?.hash)
+      if (this.options.announce) announceNavigation(document.title)
       this.dispatch('boost:after-dom-update', updateDetail, false)
 
       try {
@@ -343,10 +374,10 @@ class NavigationController implements Boost {
     if (!(link instanceof HTMLAnchorElement)) return
     if (!this.isBoosted(link)) return
 
-    if (link.hasAttribute('download')) return
+    if (link.hasAttribute('download') || link.getAttribute('aria-disabled') === 'true') return
     const linkTarget = link.getAttribute('target')
-    if (linkTarget && linkTarget !== '_self') return
-    if ((link.getAttribute('rel') ?? '').split(/\s+/).includes('external')) return
+    if (linkTarget && linkTarget.toLowerCase() !== '_self') return
+    if ((link.getAttribute('rel') ?? '').toLowerCase().split(/\s+/).includes('external')) return
 
     const href = link.getAttribute('href')
     if (!href || href.startsWith('#')) return
@@ -383,7 +414,7 @@ class NavigationController implements Boost {
       | null
 
     const formTarget = submitter?.getAttribute('formtarget') ?? form.getAttribute('target')
-    if (formTarget && formTarget !== '_self') return
+    if (formTarget && formTarget.toLowerCase() !== '_self') return
 
     const rawMethod = (
       submitter?.getAttribute('formmethod') ??
@@ -442,27 +473,33 @@ class NavigationController implements Boost {
   }
 
   private handlePopState = (event: PopStateEvent): void => {
-    const state = event.state as { boostScrollY?: number } | null
-    const scrollY = typeof state?.boostScrollY === 'number' ? state.boostScrollY : null
-
-    void this.navigate(window.location.href, { push: false, scrollY })
+    // Leave entries owned by the browser or another router untouched.
+    if (!this.options.history || !isBoostHistoryState(event.state)) return
+    const scrollY = this.options.scroll ? getHistoryScrollPosition(event.state) : null
+    const focusId = getHistoryFocusId(event.state)
+    void this.navigate(window.location.href, { push: false, scrollY, focusId })
   }
 
   private rememberScroll(): void {
-    if (this.options.history) rememberScrollPosition()
+    if (!this.options.history || (!this.options.scroll && this.options.focus === false)) return
+    const active = document.activeElement
+    const focusId =
+      this.options.focus !== false && active instanceof HTMLElement && active.id
+        ? active.id
+        : undefined
+    rememberScrollPosition(this.options.scroll ? window.scrollY : 0, focusId)
   }
 
-  private commitHistory(target: string, push: boolean | 'replace', requested: string): void {
-    commitHistory(target, push, requested)
+  private commitHistory(target: string, push: boolean | 'replace', requested: string): boolean {
+    return commitHistory(target, push, requested)
   }
 
   private applyScroll(finalUrl: string, scrollY: number | null): void {
+    if (!this.options.scroll) return
     if (scrollY !== null) {
       scrollToPosition(scrollY)
       return
     }
-    if (!this.options.scroll) return
-
     const hash = resolveUrl(finalUrl)?.hash
     if (hash && scrollToHash(hash)) return
     scrollToTop()

@@ -41,6 +41,9 @@ export function resolveOptions(options: BoostOptions): ResolvedBoostOptions {
     createHTML: options.createHTML,
     history: options.history ?? true,
     scroll: options.scroll ?? true,
+    focus:
+      options.focus === false ? false : typeof options.focus === 'string' ? options.focus : 'auto',
+    announce: options.announce ?? true,
     executeScripts: false,
     nonce: typeof options.nonce === 'string' ? options.nonce : '',
     maxResponseBytes,

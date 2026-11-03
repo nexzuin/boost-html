@@ -11,6 +11,7 @@ const PAGE = `
     <a id="external" href="https://example.com/page">External</a>
     <a id="blank" href="/blank" target="_blank">Blank</a>
     <a id="download" href="/file.pdf" download>Download</a>
+    <a id="aria-disabled" href="/disabled" aria-disabled="true">Unavailable</a>
     <a id="disabled" href="/disabled" data-boost="false">Disabled</a>
     <form id="search" action="/search" method="get">
       <input name="q" value="boost" />
@@ -159,6 +160,7 @@ describe('boost-html', () => {
     ['external', {}],
     ['blank', {}],
     ['download', {}],
+    ['aria-disabled', {}],
     ['about', { ctrlKey: true }],
     ['about', { metaKey: true }],
     ['about', { shiftKey: true }],
@@ -483,7 +485,9 @@ describe('boost-html', () => {
     const pushState = vi.spyOn(history, 'pushState')
     scrollTo.mockClear()
 
-    window.dispatchEvent(new PopStateEvent('popstate', { state: { boostScrollY: 120 } }))
+    window.dispatchEvent(
+      new PopStateEvent('popstate', { state: { __boostHtml: { version: 1, scrollY: 120 } } }),
+    )
 
     await vi.waitFor(() => expect(document.querySelector('h1')?.textContent).toBe('Home'))
 
@@ -497,12 +501,14 @@ describe('boost-html', () => {
     fetchMock.mockResolvedValue(respond('<h1>Final</h1>', { url: 'http://localhost/final' }))
     const replaceState = vi.spyOn(history, 'replaceState')
 
-    window.dispatchEvent(new PopStateEvent('popstate', { state: { boostScrollY: 0 } }))
+    window.dispatchEvent(
+      new PopStateEvent('popstate', { state: { __boostHtml: { version: 1, scrollY: 0 } } }),
+    )
 
     await vi.waitFor(() => expect(document.querySelector('h1')?.textContent).toBe('Final'))
 
     expect(replaceState).toHaveBeenCalledWith(
-      expect.objectContaining({ boost: true }),
+      expect.objectContaining({ __boostHtml: { version: 1, scrollY: 0 } }),
       '',
       'http://localhost/final',
     )
